@@ -1,0 +1,24 @@
+{
+    "name": "numencode/wn-backup-plugin",
+    "description": "NumenCode Backup plugin for Winter CMS",
+    "type": "winter-plugin",
+    "homepage": "https://www.numencode.com",
+    "keywords": ["winter", "cms", "wintercms", "laravel", "numencode"],
+    "license": "MIT",
+    "support": {
+        "issues": "https://github.com/numencode/wn-backup-plugin/issues",
+        "source": "https://github.com/numencode/wn-backup-plugin"
+    },
+    "authors": [
+        {
+            "name": "Blaz Orazem",
+            "email": "blaz@orazem.si",
+            "homepage": "https://www.orazem.si/",
+            "role": "Founder"
+        }
+    ],
+    "require": {
+        "php": ">=7.2.9",
+        "laravelcollective/remote": "^6.2"
+    }
+}
