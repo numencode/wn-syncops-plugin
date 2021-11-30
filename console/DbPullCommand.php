@@ -11,7 +11,7 @@ class DbPullCommand extends RemoteCommand
     public function handle()
     {
         if (!$this->sshConnect()) {
-            return;
+            return $this->error('An error occurred while connecting with SSH.');
         }
 
         $remoteUser = $this->server['username'];
@@ -28,36 +28,33 @@ class DbPullCommand extends RemoteCommand
         $remoteDbPass = $this->backup['database']['password'];
         $remoteDbTables = implode(' ', $this->backup['database']['tables']);
 
-        $this->line('');
-
-        $this->question('Creating database dump file...');
+        $this->line(PHP_EOL . "Creating database dump file on the {$this->argument('server')} server...");
         $this->sshRun(["mysqldump -u{$remoteDbUser} -p{$remoteDbPass} --no-create-info --replace {$remoteDbName} {$remoteDbTables} > database.sql"]);
-        $this->line('');
-        $this->info('Database dump file created.');
-        $this->line('');
+        $this->info('Database dump file created.' . PHP_EOL);
 
-        $this->question('Fetching database dump file from the remote server...');
-        $this->info(shell_exec("scp {$remoteUser}@{$remoteHost}:{$remotePath}/database.sql database.sql"));
-        $this->info('Database dump file successfully received.');
-        $this->line('');
+        $this->line("Fetching database dump file from the {$this->argument('server')} server...");
+        shell_exec("scp {$remoteUser}@{$remoteHost}:{$remotePath}/database.sql database.sql");
+        $this->info('Database dump file successfully received.' . PHP_EOL);
 
         if (!$this->option('no-import')) {
-            $this->question('Importing data...');
-            $this->info(shell_exec("mysql -u{$dbUser} -p{$dbPass} {$dbName} < database.sql"));
-            $this->info('Data imported successfully.');
-            $this->line('');
+            $this->line('Importing data...');
+            shell_exec("mysql -u{$dbUser} -p{$dbPass} {$dbName} < database.sql");
+            $this->info('Data imported successfully.' . PHP_EOL);
         }
 
-        $this->question('Cleaning the database dump files...');
+        $this->line('Cleaning the database dump files...');
         $this->sshRun(['rm -f database.sql']);
 
         if (!$this->option('no-import')) {
-            $this->info(shell_exec('rm -f database.sql'));
+            shell_exec('rm -f database.sql');
         }
 
-        $this->info('Cleanup completed successfully.');
-        $this->line('');
+        $this->info('Cleanup completed successfully.' . PHP_EOL);
 
-        $this->alert('Database was successfully updated.');
+        if ($this->option('no-import')) {
+            $this->alert("Database was successfully fetched from the {$this->argument('server')} server.");
+        } else {
+            $this->alert('Database was successfully updated.');
+        }
     }
 }

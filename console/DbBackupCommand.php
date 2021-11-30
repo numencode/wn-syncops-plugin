@@ -19,7 +19,7 @@ class DbBackupCommand extends Command
 
     public function handle()
     {
-        $folder = $this->prepareFolder($this->option('folder'), $this->argument('cloudName'));
+        $folder = $this->resolveFolderName($this->option('folder'));
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
 
         $this->dumpFile = Carbon::now()->format($timestamp) . '.sql.gz';
@@ -29,48 +29,40 @@ class DbBackupCommand extends Command
         $dbPass = config('database.connections.' . $connection . '.password');
         $dbName = config('database.connections.' . $connection . '.database');
 
-        $this->line('');
-        $this->question('Creating database dump file...');
-        $this->info(shell_exec("mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFileName}"));
-        $this->info('Database dump file successfully created.');
-        $this->line('');
+        $this->line(PHP_EOL . 'Creating database dump file...');
+        shell_exec("mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFile}");
+        $this->info('Database dump file successfully created.' . PHP_EOL);
 
         if ($this->argument('cloudName')) {
             $cloudStorage = Storage::disk($this->argument('cloudName'));
 
-            $this->question('Uploading database dump file to the cloud storage...');
-            $cloudStorage->put($folder . $this->dumpFile, file_get_contents($this->dumpFileName));
-            $this->info('Database dump file successfully uploaded.');
-            $this->line('');
+            $this->line('Uploading database dump file to the cloud storage...');
+            $cloudStorage->put($folder . $this->dumpFile, file_get_contents($this->dumpFile));
+            $this->info('Database dump file successfully uploaded.' . PHP_EOL);
 
             if (!$this->option('no-delete')) {
                 $this->line('Deleting the database dump file...');
-                $this->info(shell_exec("rm -f {$this->dumpFileName}"));
-                $this->info('Database dump file successfully deleted.');
-                $this->line('');
+                shell_exec("rm -f {$this->dumpFile}");
+                $this->info('Database dump file successfully deleted.' . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
             }
-        } elseif ($folder) {
-            $this->moveFile($folder);
         }
 
         $this->alert('Database backup was successfully created.');
     }
 
-    protected function prepareFolder($folderName = null, $cloudStorage = null)
+    protected function resolveFolderName($folderName = null)
     {
-        $folderName = $folderName ? rtrim($folderName, '/') . '/' : null;
-
-        if (!$cloudStorage && $folderName && !File::isDirectory($folderName)) {
-            File::makeDirectory($folderName, 0777, true, true);
-        }
-
-        return $folderName;
+        return $folderName ? rtrim($folderName, '/') . '/' : null;
     }
 
     protected function moveFile($folder)
     {
+        if (!File::isDirectory($folder)) {
+            File::makeDirectory($folder, 0777, true, true);
+        }
+
         File::move($this->dumpFile, $folder . $this->dumpFile);
     }
 }

@@ -20,50 +20,38 @@ class ProjectBackupCommand extends Command
 
     public function handle()
     {
-        $folder = $this->prepareFolder($this->option('folder'), $this->argument('cloudName'));
+        $folder = $this->resolveFolderName($this->option('folder'));
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
         $exclude = $this->prepareExcludeList($this->option('exclude'));
 
         $this->archiveFile = Carbon::now()->format($timestamp) . '.tar.gz';
 
-        $this->line('');
-        $this->line('Creating project tarball archive...');
-        $this->info(shell_exec("tar -pczf {$this->archiveFile} {$exclude} ."));
-        $this->info('Project tarball archive successfully created.');
-        $this->line('');
+        $this->line(PHP_EOL . 'Creating project archive...');
+        shell_exec("tar -pczf {$this->archiveFile} {$exclude} .");
+        $this->info('Project archive successfully created.' . PHP_EOL);
 
         if ($this->argument('cloudName')) {
             $cloudStorage = Storage::disk($this->argument('cloudName'));
 
-            $this->line('Uploading project tarball archive to the cloud storage...');
+            $this->line('Uploading project archive to the cloud storage...');
             $cloudStorage->put($folder . $this->archiveFile, file_get_contents($this->archiveFile));
-            $this->info('Project tarball archive successfully uploaded.');
-            $this->line('');
+            $this->info('Project archive successfully uploaded.' . PHP_EOL);
 
             if (!$this->option('no-delete')) {
-                $this->line('Deleting the project tarball archive...');
-                $this->info(shell_exec("rm -f {$this->archiveFile}"));
-                $this->info('Project tarball archive successfully deleted.');
-                $this->line('');
+                $this->line('Deleting the project archive...');
+                shell_exec("rm -f {$this->archiveFile}");
+                $this->info('Project archive successfully deleted.' . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
             }
-        } elseif ($folder) {
-            $this->moveFile($folder);
         }
 
-        $this->alert('Project backup successfully created.');
+        $this->alert('Project backup was successfully created.');
     }
 
-    protected function prepareFolder($folderName = null, $cloudStorage = null)
+    protected function resolveFolderName($folderName = null)
     {
-        $folderName = $folderName ? rtrim($folderName, '/') . '/' : null;
-
-        if (!$cloudStorage && $folderName && !File::isDirectory($folderName)) {
-            File::makeDirectory($folderName, 0777, true, true);
-        }
-
-        return $folderName;
+        return $folderName ? rtrim($folderName, '/') . '/' : null;
     }
 
     protected function prepareExcludeList($excludeList = null)
@@ -81,6 +69,10 @@ class ProjectBackupCommand extends Command
 
     protected function moveFile($folder)
     {
+        if (!File::isDirectory($folder)) {
+            File::makeDirectory($folder, 0777, true, true);
+        }
+
         File::move($this->archiveFile, $folder . $this->archiveFile);
     }
 }

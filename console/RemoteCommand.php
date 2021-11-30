@@ -36,7 +36,7 @@ class RemoteCommand extends Command
             $lines[] = $line;
 
             if ($print) {
-                $this->info('> ' . $line);
+                echo($line);
             }
         });
 
