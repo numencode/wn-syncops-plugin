@@ -16,7 +16,7 @@ class ProjectDeployCommand extends RemoteCommand
     public function handle()
     {
         if (!$this->sshConnect()) {
-            return;
+            return $this->error('An error occurred while connecting with SSH.');
         }
 
         if (!$this->checkForChanges(true)) {

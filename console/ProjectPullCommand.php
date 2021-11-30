@@ -4,7 +4,7 @@ class ProjectPullCommand extends RemoteCommand
 {
     protected $signature = 'project:pull
         {server         : The name of the remote server}
-        {--p|--pull     : Execute git pull command before git push}
+        {--p|--pull     : Execute "git pull" command before "git push"}
         {--m|--no-merge : Do not merge changes automatically}';
 
     protected $description = 'Fetch changes from production environment and merge them into the local project.';
@@ -12,7 +12,7 @@ class ProjectPullCommand extends RemoteCommand
     public function handle()
     {
         if (!$this->sshConnect()) {
-            return false;
+            return $this->error('An error occurred while connecting with SSH.');
         }
 
         $this->line('');
