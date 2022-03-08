@@ -1,6 +1,24 @@
-# Backup Plugin
+# SyncOps Plugin
 
-NumenCode Backup plugin for Winter CMS.
+The **NumenCode SyncOps** plugin for Winter CMS offers a powerful and streamlined solution for managing backups, 
+deployments, and environment synchronization. Designed for developers, it simplifies syncing databases, media files, 
+and code between environments, enabling safer and more efficient DevOps workflows within Winter CMS.
+
+[![Version](https://img.shields.io/github/v/release/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://github.com/numencode/wn-syncops-plugin/releases)
+[![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://packagist.org/packages/numencode/wn-syncops-plugin)
+[![Checks](https://img.shields.io/github/check-runs/numencode/wn-syncops-plugin/main?style=flat-square)](https://github.com/numencode/wn-syncops-plugin/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/numencode/wn-syncops-plugin/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/numencode/wn-syncops-plugin/actions)
+[![License](https://img.shields.io/github/license/numencode/wn-syncops-plugin?label=open%20source&style=flat-square&color=0099FF)](https://github.com/numencode/wn-syncops-plugin/blob/main/LICENSE.md)
+
+---
+
+## Target Audience
+
+The target audience for this plugin includes Winter CMS developers, DevOps engineers, and technical teams who manage 
+multiple environments (local, staging, production) and require reliable tools for synchronization and deployment. 
+SyncOps is ideal for teams working on complex, multi-instance projects where keeping databases, media assets, 
+and codebases aligned is critical. It streamlines routine operations and reduces the risk of manual errors, 
+supporting a more automated and professional development workflow.
 
 ## Installation and setup
 
@@ -22,8 +40,8 @@ Laravel includes a simple way to SSH into remote servers and run commands on rem
 [LaravelCollective/Remote](https://laravelcollective.com/docs/6.x/remote) package provides the access point to
 connecting to your remote servers and running commands.
 
-The above command will create a new configuration file, located at `/config/remote.php`, that contains all the
-options you need to configure your remote connections. The connections array contains a list of your servers keyed
+The above command will create a new configuration file, located at `/config/remote.php`, that contains all the options
+you need in order to configure your remote connections. The connections array contains a list of your servers keyed
 by name. Simply populate the credentials in the connections array via your environment variables in the `.env` file.
 
 > Note that the SSH can authenticate using either a password or an SSH key.
@@ -32,13 +50,13 @@ Beside the SSH credentials in the configuration file, you will notice some addit
 `backup` array of data. Here is an explanation for every single attribute from it:
 
 | Data                    | Description                                                                    |
-| :---------------------- | :----------------------------------------------------------------------------- |
+| :---------------------- |:-------------------------------------------------------------------------------|
 | path                    | Path to the project on the remote server, e.g. `/var/www/yourdomain.com`       |
 | branch                  | Name of the branch checked-out on the remote server, `prod` by default         |
 | branch_main             | Name of the branch checked-out on the local/dev environment, `main` by default |
 | permissions.root_user   | Superuser and group with full access, e.g. `root:root` or `pi:pi`              |
 | permissions.web_user    | Web server user and group with limited access, e.g. `www-data:www-data`        |
-| permissions.web_folders | Folder owned by web user, `storage,themes` by default                          |
+| permissions.web_folders | Folders owned by web user, `storage,themes` by default                         |
 | database.name           | Database name on the remote server                                             |
 | database.username       | Database username on the remote server                                         |
 | database.password       | Database password on the remote server                                         |
@@ -46,8 +64,8 @@ Beside the SSH credentials in the configuration file, you will notice some addit
 
 *you can specify, which tables in the database you would like to sync with command `db:pull`. If no table names are
 listed in this array, all the tables will be synchronized between environments. Since some settings stored in the
-database are usually not identical across different environments, it makes sense to specify, which tables should
-be synchronized, when `db:pull` command transmits the data from one database to the other.
+database are usually not identical across different environments, it makes sense to specify which tables should
+be synchronized when `db:pull` command transfers the data from one database to the other.
 
 ### Environment variables example
 
@@ -96,8 +114,8 @@ cloud storage for media files, database synchronization and more.
 ### Db:backup
 
 The command creates a compressed SQL dump file of the project's default database. The name of the archive is the
-current timestamp with the extension of `.sql.gz`. The timestamp format can be explicitly specified, although the
-default format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud storage, if an argument is provided.
+current timestamp with the extension of `.sql.gz`. The timestamp format can be explicitly specified - the default
+format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud storage, if an argument is provided.
 
 This command is useful if it's set in the Scheduler to create a complete daily database backup and upload it to the
 cloud storage.
@@ -214,8 +232,8 @@ php artisan media:pull production cloudName folder --sudo
 
 The command creates a compressed tarball file, which is an archive of all the project files in the current directory.
 The name of the archive is the current timestamp with the extension of `.tar.gz`. The timestamp format can be
-explicitly specified, although the default format is `Y-m-d_H-i-s`. The command can also upload the file to the
-cloud storage, if an argument is provided. You can exclude explicitly selected folders from the archive.
+explicitly specified - the default format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud
+storage, if an argument is provided. You can exclude explicitly selected folders from the archive.
 
 This command is useful if it's set in the Scheduler to create a complete backup once a week and upload it to the
 cloud storage.
@@ -312,7 +330,7 @@ The commit message argument is optional, and it defaults to `"Server changes"` m
 #### Usage in Scheduler
 
 ```
-$schedule->command('project:commit')->daily()->at('01:00');
+$schedule->command('project:commit')->daily()->at('04:00');
 ```
 
 ---
@@ -327,12 +345,15 @@ Here are the recommended entries for the Scheduler:
 
 ```
 $schedule->command('project:backup dropbox --folder=files')->weeklyOn(1, '01:00');
-$schedule->command('media:backup dropbox')->daily()->at('02:00');
-$schedule->command('db:backup dropbox')->daily()->at('03:00');
+$schedule->command('db:backup dropbox --folder=database')->daily()->at('02:00');
+$schedule->command('media:backup dropbox')->daily()->at('03:00');
 $schedule->command('project:commit')->daily()->at('04:00');
 ```
 
 ## Dropbox setup
+
+Dropbox is very easy to configure and upon the registration on https://www.dropbox.com/register it offers free 2GB
+of cloud storage space. In order to setup the Dropbox, complete the registration and continue with the following steps.
 
 1. Require the Dropbox adapter package with Composer
 ```bash
