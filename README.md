@@ -1,6 +1,6 @@
-# Backup Plugin
+# SyncOps Plugin
 
-NumenCode Backup plugin for Winter CMS.
+NumenCode SyncOps plugin for Winter CMS.
 
 ## Installation and setup
 
