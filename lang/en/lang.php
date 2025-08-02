@@ -2,7 +2,7 @@
 
 return [
     'plugin'    => [
-        'name'        => 'Backup',
-        'description' => 'NumenCode Backup for Winter CMS.',
+        'name'        => 'SyncOps',
+        'description' => 'NumenCode SyncOps for Winter CMS.',
     ],
 ];

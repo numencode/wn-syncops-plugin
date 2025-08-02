@@ -1,12 +1,12 @@
-<?php namespace NumenCode\Backup\Console;
+<?php namespace NumenCode\SyncOps\Console;
 
 use Illuminate\Support\Facades\Storage;
 
 class MediaPullCommand extends RemoteCommand
 {
-    protected $signature = 'media:pull
+    protected $signature = 'syncops:media-pull
         {server     : The name of the remote server}
-        {cloudName  : Cloud storage where the media files are uploaded}
+        {cloud      : Cloud storage where the media files are uploaded}
         {folder?    : The name of the folder on the cloud storage where the media files are stored (default: storage)}
         {--x|--sudo : Force super user (sudo) on the remote server}';
 
@@ -24,14 +24,14 @@ class MediaPullCommand extends RemoteCommand
             $this->sudo = 'sudo ';
         }
 
-        $cloud = $this->argument('cloudName');
+        $cloud = $this->argument('cloud');
         $folder = $this->resolveFolderName($this->argument('folder'));
 
-        $this->info(PHP_EOL . "Now connected to the {$this->argument('server')} environment." . PHP_EOL);
+        $this->info(PHP_EOL . "Now connected to the {$this->argument('server')} server." . PHP_EOL);
         $this->line('Executing media:backup command...');
 
         $result = $this->sshRunAndPrint([$this->sudo . 'php artisan media:backup ' . $cloud . ' ' . $folder]);
-
+        dd($result);
         if (!str_contains($result, 'files successfully uploaded')) {
             $this->error(PHP_EOL . 'An error occurred while uploading files to the cloud storage.');
 
