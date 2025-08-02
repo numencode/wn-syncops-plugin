@@ -1,44 +1,49 @@
-<?php namespace NumenCode\Backup;
+<?php namespace NumenCode\SyncOps;
 
 use System\Classes\PluginBase;
-use NumenCode\Backup\Console\BackupUpCommand;
-use NumenCode\Backup\Console\DbPullCommand;
-use NumenCode\Backup\Console\DbBackupCommand;
-use NumenCode\Backup\Console\MediaPullCommand;
-use NumenCode\Backup\Console\MediaBackupCommand;
-use NumenCode\Backup\Console\ProjectPullCommand;
-use NumenCode\Backup\Console\ProjectBackupCommand;
-use NumenCode\Backup\Console\ProjectCommitCommand;
-use NumenCode\Backup\Console\ProjectDeployCommand;
+use NumenCode\SyncOps\Console\DbPullCommand;
+use NumenCode\SyncOps\Console\DbBackupCommand;
+use NumenCode\SyncOps\Console\MediaPullCommand;
+use NumenCode\SyncOps\Console\MediaBackupCommand;
+use NumenCode\SyncOps\Console\ProjectPullCommand;
+use NumenCode\SyncOps\Console\ProjectBackupCommand;
+use NumenCode\SyncOps\Console\ProjectCommitCommand;
+use NumenCode\SyncOps\Console\ProjectDeployCommand;
 
 class Plugin extends PluginBase
 {
     public function pluginDetails()
     {
         return [
-            'name'        => 'numencode.backup::lang.plugin.name',
-            'description' => 'numencode.backup::lang.plugin.description',
+            'name'        => 'numencode.syncops::lang.plugin.name',
+            'description' => 'numencode.syncops::lang.plugin.description',
             'author'      => 'Blaz Orazem',
             'icon'        => 'icon-cloud-upload',
-            'homepage'    => 'https://github.com/numencode/wn-backup-plugin',
+            'homepage'    => 'https://github.com/numencode/wn-syncops-plugin',
         ];
+    }
+
+    public function boot()
+    {
+        $this->publishes([__DIR__ . '/config/syncops.php' => config_path('syncops.php')], 'syncops-config');
     }
 
     public function register()
     {
+        $this->mergeConfigFrom(__DIR__ . '/config/syncops.php', 'syncops');
+
         $this->registerConsoleCommands();
     }
 
     protected function registerConsoleCommands()
     {
-        $this->registerConsoleCommand('numencode.backup_up', BackupUpCommand::class);
-        $this->registerConsoleCommand('numencode.db_pull', DbPullCommand::class);
-        $this->registerConsoleCommand('numencode.db_backup', DbBackupCommand::class);
-        $this->registerConsoleCommand('numencode.media_pull', MediaPullCommand::class);
-        $this->registerConsoleCommand('numencode.media_backup', MediaBackupCommand::class);
-        $this->registerConsoleCommand('numencode.project_pull', ProjectPullCommand::class);
-        $this->registerConsoleCommand('numencode.project_backup', ProjectBackupCommand::class);
-        $this->registerConsoleCommand('numencode.project_commit', ProjectCommitCommand::class);
-        $this->registerConsoleCommand('numencode.project_deploy', ProjectDeployCommand::class);
+//        $this->registerConsoleCommand('syncops.db_pull', DbPullCommand::class);
+//        $this->registerConsoleCommand('syncops.db_backup', DbBackupCommand::class);
+        $this->registerConsoleCommand('syncops.media_pull', MediaPullCommand::class);
+        $this->registerConsoleCommand('syncops.media_backup', MediaBackupCommand::class);
+        $this->registerConsoleCommand('syncops.project_pull', ProjectPullCommand::class);
+//        $this->registerConsoleCommand('syncops.project_backup', ProjectBackupCommand::class);
+//        $this->registerConsoleCommand('syncops.project_commit', ProjectCommitCommand::class);
+        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeployCommand::class);
     }
 }
