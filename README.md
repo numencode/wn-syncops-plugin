@@ -1,6 +1,7 @@
 ---
 
-# ⚠️🚧 **WORK IN PROGRESS - DO NOT USE IN PRODUCTION** 🚧⚠️
+# ⚠️🚧 **WORK IN PROGRESS** 🚧⚠️
+# DO NOT USE IN PRODUCTION
 
 This plugin is currently under active development and is **not ready for production use**.
 
