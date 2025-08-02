@@ -1,7 +1,16 @@
+---
+
+# ⚠️🚧 **WORK IN PROGRESS** 🚧⚠️
+# DO NOT USE IN PRODUCTION
+
+This plugin is currently under active development and is **not ready for production use**.
+
+---
+
 # SyncOps Plugin
 
-The **NumenCode SyncOps** plugin for Winter CMS offers a powerful and streamlined solution for managing backups, 
-deployments, and environment synchronization. Designed for developers, it simplifies syncing databases, media files, 
+The **NumenCode SyncOps** plugin for Winter CMS offers a powerful and streamlined solution for managing backups,
+deployments, and environment synchronization. Designed for developers, it simplifies syncing databases, media files,
 and code between environments, enabling safer and more efficient DevOps workflows within Winter CMS.
 
 [![Version](https://img.shields.io/github/v/release/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://github.com/numencode/wn-syncops-plugin/releases)
@@ -14,10 +23,10 @@ and code between environments, enabling safer and more efficient DevOps workflow
 
 ## Target Audience
 
-The target audience for this plugin includes Winter CMS developers, DevOps engineers, and technical teams who manage 
-multiple environments (local, staging, production) and require reliable tools for synchronization and deployment. 
-SyncOps is ideal for teams working on complex, multi-instance projects where keeping databases, media assets, 
-and codebases aligned is critical. It streamlines routine operations and reduces the risk of manual errors, 
+The target audience for this plugin includes Winter CMS developers, DevOps engineers, and technical teams who manage
+multiple environments (local, staging, production) and require reliable tools for synchronization and deployment.
+SyncOps is ideal for teams working on complex, multi-instance projects where keeping databases, media assets,
+and codebases aligned is critical. It streamlines routine operations and reduces the risk of manual errors,
 supporting a more automated and professional development workflow.
 
 ## Installation and setup
@@ -27,13 +36,13 @@ This package requires [Winter CMS](https://wintercms.com/) application.
 Install the package with Composer:
 
 ```bash
-composer require numencode/wn-backup-plugin
+composer require numencode/wn-syncops-plugin
 ```
 
 Run the command:
 
 ```bash
-php artisan backup:up
+php artisan vendor:publish --tag=syncops-config
 ```
 
 Laravel includes a simple way to SSH into remote servers and run commands on remote servers. The SSH facade from
@@ -168,36 +177,108 @@ php artisan db:pull production --no-import
 ```
 - `--no-import` or `-i` prevents importing data automatically and leaves the database dump file in the project's root folder
 
----
+
+
+-----
+-----
+-----
+
+# DONE
 
 <a name="media-backup"></a>
-### Media:backup
+### Command: syncops:media-backup
 
-The command uploads all the media files from the folder `storage/app/` to the cloud storage. All `.gitignore` files
-and `/thumb/` folders are excluded from the upload by default.
+The `syncops:media-backup` command efficiently uploads all media files from your Winter CMS installation
+(specifically from the `storage/app` directory) to a specified cloud storage disk.
 
-This command is useful if it's set in the Scheduler to create a complete daily media backup and upload it to the
-cloud storage.
+This command is ideal for creating routine media backups. When integrated with the Winter CMS Scheduler, it enables
+automated daily backups to your chosen cloud storage, ensuring your media assets are always safe and accessible.
+
+By default, the command excludes `.gitignore` files and any files located within `/thumb/` directories
+(which typically contain generated image thumbnails) to optimize upload times and storage space.
 
 #### Usage in CLI
 
-```bash
-php artisan media:backup cloudName
-```
-- where `cloudName` is the cloud storage where the media files are uploaded (defined in `/config/filesystems.php`)
+To run the command, you need to specify the cloud storage disk name (as defined in your `config/filesystems.php`).
 
-The command supports one optional argument:
 ```bash
-php artisan media:backup cloudName folder
+php artisan syncops:media-backup dropbox
 ```
-- `folder` is the name of the folder on the cloud storage where the media files are uploaded, the default is `storage/`
+
+In this example, `dropbox` is the name of your configured cloud storage disk.
+
+You can also specify an optional target folder within your cloud storage.
+This folder will serve as the base directory for your uploaded media files.
+
+```bash
+php artisan syncops:media-backup dropbox my-project-media
+```
+
+If `my-project-media` is provided, files will be uploaded to a path like `dropbox://my-project-media/storage/...`.
+If no folder is specified, the default target folder on the cloud storage will be `storage/`.
+
+#### Options
+
+The `syncops:media-backup` command supports the following options for more control over the backup process:
+
+* **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being uploaded
+and files that are skipped because they already exist and have the same size in the cloud storage. When this option
+is used, the progress bar will be hidden.
+
+  ```bash
+  php artisan syncops:media-backup dropbox --log
+  ```
+
+* **`--dry-run` (`-D`)**: Simulate the backup process without actually uploading any files.
+This allows you to see which files would be processed, making it useful for testing and verifying your setup.
+
+  ```bash
+  php artisan syncops:media-backup dropbox --dry-run
+  ```
+
+#### Configuration
+
+Before using this command, ensure your cloud storage disks are properly configured in your Laravel
+application's `config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
+
+```php
+// config/filesystems.php
+
+'disks' => [
+    // ... other disks
+
+    'dropbox' => [
+        'driver' => 'dropbox',
+    ],
+],
+```
 
 #### Usage in Scheduler
 
-```
-$schedule->command('media:backup cloudName')->dailyAt('03:00');
+To automate your media backups, add the command to your Winter CMS Scheduler
+(typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
+
+```php
+use Illuminate\Console\Scheduling\Schedule;
+
+public function registerSchedule(Schedule $schedule)
+{
+    $schedule->command('syncops:media-backup dropbox')->dailyAt('03:00');
+}
 ```
 
+This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
+
+
+
+
+
+
+
+
+
+---
+---
 ---
 
 <a name="media-pull"></a>

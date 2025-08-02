@@ -37,7 +37,7 @@ return [
             'agent'     => env('REMOTE_PRODUCTION_AGENT', ''),
             'timeout'   => 600,
 
-            // Extra data is required for the NumenCode\Backup plugin
+            // Extra data is required for the NumenCode\SyncOps plugin
             'backup'    => [
                 'path'        => rtrim(env('REMOTE_PRODUCTION_PATH'), '/'),
                 'branch'      => env('REMOTE_PRODUCTION_BRANCH', 'prod'),

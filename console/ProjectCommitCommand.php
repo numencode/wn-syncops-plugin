@@ -1,4 +1,4 @@
-<?php namespace NumenCode\Backup\Console;
+<?php namespace NumenCode\SyncOps\Console;
 
 use Illuminate\Console\Command;
 
