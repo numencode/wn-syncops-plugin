@@ -14,7 +14,7 @@ class ProjectDeployCommand extends Command
 
     protected $description = 'Deploys the project on the remote server';
 
-    protected bool $sudo;
+    protected $sudo;
     protected RemoteExecutor $executor;
 
     public function handle(RemoteExecutor $executor)
