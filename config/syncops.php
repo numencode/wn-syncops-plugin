@@ -28,14 +28,23 @@ return [
 
     'connections' => [
         'production' => [
-            'host'      => env('REMOTE_PRODUCTION_HOST', ''),
-            'username'  => env('REMOTE_PRODUCTION_USERNAME', ''),
-            'password'  => env('REMOTE_PRODUCTION_PASSWORD', ''),
-            'key'       => env('REMOTE_PRODUCTION_KEY', ''),
-            'keytext'   => env('REMOTE_PRODUCTION_KEYTEXT', ''),
-            'keyphrase' => env('REMOTE_PRODUCTION_KEYPHRASE', ''),
-            'agent'     => env('REMOTE_PRODUCTION_AGENT', ''),
+            'host'      => env('SYNCOPS_PRODUCTION_HOST', ''),
+            'port'      => env('SYNCOPS_PRODUCTION_PORT', 22),
+            'username'  => env('SYNCOPS_PRODUCTION_USERNAME', ''),
+            'key_path'  => env('SYNCOPS_PRODUCTION_KEY', ''), // private key file path
+//            'password'  => env('SYNCOPS_PRODUCTION_PASSWORD', ''),
+//            'key_pass'  => env('SYNCOPS_PRODUCTION_KEYPHRASE', ''), // optional
+//            'agent'     => env('SYNCOPS_PRODUCTION_AGENT', false), // optional
+
+//            'key'       => env('SYNCOPS_PRODUCTION_KEY', ''),
+//            'keytext'   => env('SYNCOPS_PRODUCTION_KEYTEXT', ''),
+//            'keyphrase' => env('SYNCOPS_PRODUCTION_KEYPHRASE', ''),
+//            'agent'     => env('SYNCOPS_PRODUCTION_AGENT', ''),
             'timeout'   => 600,
+
+//            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),
+            'branch'      => env('SYNCOPS_PRODUCTION_BRANCH', 'prod'),
+            'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),
 
             // Extra data is required for the NumenCode\SyncOps plugin
             'backup'    => [
