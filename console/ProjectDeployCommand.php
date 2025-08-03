@@ -103,7 +103,7 @@ class ProjectDeployCommand extends Command
     {
         $this->line('Deploying the project (merge mode):');
 
-        $result = $this->executor->unAndPrint([
+        $result = $this->executor->runAndPrint([
             'git fetch',
             'git merge origin/' . array_get($this->executor->config, 'branch_main', 'main'),
         ]);
