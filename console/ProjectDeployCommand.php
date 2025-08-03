@@ -22,11 +22,9 @@ class ProjectDeployCommand extends Command
         $this->executor = $executor;
 
         try {
-            $executor->connect($this->argument('server'));
+            $this->executor->connect($this->argument('server'));
 
-            $executor->abortIfUncommittedChanges();
-
-            $executor->runAndPrint(['php artisan down']);
+            $this->executor->abortIfUncommittedChanges();
 
             if ($this->option('sudo')) {
                 $this->sudo = 'sudo ';
@@ -41,10 +39,8 @@ class ProjectDeployCommand extends Command
             } else {
                 $this->error('⚠ Project deployment FAILED. Check error logs to see what went wrong.');
             }
-
-            $executor->runAndPrint(['php artisan up']);
         } catch (\Throwable $e) {
-            $executor->runAndPrint(['php artisan up']);
+            $this->executor->runAndPrint(['php artisan up']);
 
             $this->error($e->getMessage());
         }
@@ -63,6 +59,26 @@ class ProjectDeployCommand extends Command
         } else {
             return $this->mergeDeploy();
         }
+    }
+
+    protected function deploy()
+    {
+        $this->line('Putting the application into maintenance mode:');
+        $this->executor->runAndPrint([$this->sudo . 'php artisan down']);
+        sleep(1);
+
+        $this->line('Flushing the application cache:');
+        $this->executor->runAndPrint($this->clearCommands());
+
+        $success = $this->fastDeploy();
+
+        $this->line('Rebuilding the application cache:');
+        $this->executor->runAndPrint($this->clearCommands());
+
+        $this->line('Bringing the application out of the maintenance mode:');
+        $this->executor->runAndPrint([$this->sudo . 'php artisan up']);
+
+        return $success;
     }
 
     public function pullDeploy()
