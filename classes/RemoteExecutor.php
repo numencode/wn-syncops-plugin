@@ -7,7 +7,6 @@ class RemoteExecutor
 {
     protected SSH2 $ssh;
     protected string $server;
-    protected array $backup;
     public array $config;
 
     public function connect(string $server): bool
@@ -18,8 +17,6 @@ class RemoteExecutor
         if (!$this->config) {
             throw new \RuntimeException("SSH configuration not found for server: $server");
         }
-
-        $this->backup = $this->config['backup'] ?? [];
 
         $this->ssh = new SSH2(
             $this->config['host'],
@@ -45,14 +42,14 @@ class RemoteExecutor
 
     public function run(array $commands, bool $print = false, ?string $path = null): string
     {
-        if (!isset($this->backup['path'])) {
-            throw new \RuntimeException("Backup path not defined for [$this->server]");
+        if (!isset($this->config['path'])) {
+            throw new \RuntimeException("Path is not defined for [$this->server]");
         }
 
         $output = [];
 
         foreach ($commands as $command) {
-            $cwd = rtrim($this->backup['path'], '/') . ($path ?? '');
+            $cwd = rtrim($this->config['path'], '/') . ($path ?? '');
             $fullCommand = "cd {$cwd} && {$command}";
             $result = $this->ssh->exec($fullCommand);
             $output[] = $result;
@@ -65,9 +62,9 @@ class RemoteExecutor
         return implode("\n", $output);
     }
 
-    public function runAndPrint(array $commands, ?string $path = null): void
+    public function runAndPrint(array $commands, ?string $path = null): string
     {
-        $this->run($commands, true, $path);
+        return $this->run($commands, true, $path);
     }
 
     public function hasNoUncommittedChanges(): bool
@@ -88,23 +85,4 @@ class RemoteExecutor
             exit(1);
         }
     }
-
-
-//    public function checkForChanges(bool $deploy = false): bool
-//    {
-//        $result = $this->run(['git status']);
-//
-//        if (str_contains($result, 'nothing to commit')) {
-//            return true;
-//        }
-//
-//        if ($deploy) {
-//            $this->runAndPrint(['git status']);
-//
-//            echo "\nRemote changes detected. Aborting deployment.\n";
-//            echo "Please run: php artisan syncops:project-pull {$this->server}\n";
-//        }
-//
-//        return false;
-//    }
 }
