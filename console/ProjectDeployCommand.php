@@ -24,7 +24,7 @@ class ProjectDeployCommand extends Command
         try {
             $this->executor->connect($this->argument('server'));
 
-            $this->executor->abortIfUncommittedChanges();
+            $this->executor->abortIfRemoteHasChanges();
 
             if ($this->option('sudo')) {
                 $this->sudo = 'sudo ';

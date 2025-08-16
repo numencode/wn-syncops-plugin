@@ -10,8 +10,8 @@ This plugin is currently under active development and is **not ready for product
 # SyncOps Plugin
 
 The **NumenCode SyncOps** plugin for Winter CMS offers a powerful and streamlined solution for managing backups,
-deployments, and environment synchronization. Designed for developers, it simplifies syncing databases, media files,
-and code between environments, enabling safer and more efficient DevOps workflows within Winter CMS.
+deployments, and environment synchronization. Designed for developers, it simplifies syncing databases, media
+files, and code between environments, enabling safer and more efficient DevOps workflows within Winter CMS.
 
 [![Version](https://img.shields.io/github/v/release/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://github.com/numencode/wn-syncops-plugin/releases)
 [![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://packagist.org/packages/numencode/wn-syncops-plugin)
@@ -45,13 +45,43 @@ Run the command:
 php artisan vendor:publish --tag=syncops-config
 ```
 
-Laravel includes a simple way to SSH into remote servers and run commands on remote servers. The SSH facade from
-[LaravelCollective/Remote](https://laravelcollective.com/docs/6.x/remote) package provides the access point to
-connecting to your remote servers and running commands.
-
-The above command will create a new configuration file, located at `/config/remote.php`, that contains all the options
+The above command will create a new configuration file, located at `/config/syncops.php`, that contains all the options
 you need in order to configure your remote connections. The connections array contains a list of your servers keyed
 by name. Simply populate the credentials in the connections array via your environment variables in the `.env` file.
+
+---
+---
+---
+# WIP ON THIS
+
+#### Configuration
+
+Before using this command, ensure your remote servers are properly configured in your Laravel application's
+`config/remote.php` file. The command will use the SSH connection details from this configuration to connect
+to the remote host.
+
+For example, a typical remote configuration for a production server might look like this:
+
+```php
+// config/remote.php
+
+return [
+    'connections' => [
+        'production' => [
+            // Set SSH credentials
+            'host'      => env('SYNCOPS_PRODUCTION_HOST', ''),  // host IP address
+            'port'      => env('SYNCOPS_PRODUCTION_PORT', 22),
+            'user'      => env('SYNCOPS_PRODUCTION_USERNAME', ''), // ssh user
+            'key_path'  => env('SYNCOPS_PRODUCTION_KEY', ''), // private key file path
+
+            // Set project path and working branch names
+            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),
+            'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'),
+            'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),
+        ],
+    ],
+];
+```
 
 > Note that the SSH can authenticate using either a password or an SSH key.
 
@@ -186,7 +216,7 @@ php artisan db:pull production --no-import
 # DONE
 
 <a name="media-backup"></a>
-### Command: syncops:media-backup
+### Command: `syncops:media-backup`
 
 The `syncops:media-backup` command efficiently uploads all media files from your Winter CMS installation
 (specifically from the `storage/app` directory) to a specified cloud storage disk.
@@ -269,6 +299,72 @@ public function registerSchedule(Schedule $schedule)
 
 This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
 
+---
+
+### Command: `syncops:project-pull`
+
+The `syncops:project-pull` command automates the process of synchronizing a remote production environment's code
+changes with your local development project. It's particularly useful for Winter CMS projects where content changes
+made in the backend (pages, layouts, etc.) are saved as static `.htm` files.
+
+This command performs the following actions:
+
+1.  Checks for and commits any untracked changes on the remote server.
+2.  **Optionally** executes a `git pull` on the remote to ensure it's up-to-date before pushing.
+3.  Pushes the committed changes from the remote server to your Git repository.
+4.  **Optionally** fetches the changes and merges them into your current local branch.
+
+This streamlined workflow ensures you can quickly and safely retrieve and integrate content updates made directly
+on your production site, without manual intervention.
+
+#### Usage in CLI
+
+To run the command, you need to specify the name of the remote server, as configured in your `config/remote.php` file.
+
+```bash
+php artisan syncops:project-pull production
+```
+
+In this example, `production` is the name of your configured remote server.
+
+#### Options
+
+The `syncops:project-pull` command supports the following options for more control over the synchronization process:
+
+* **`--pull` (`-p`)**: Executes a `git pull` on the remote server before pushing changes. Use this to ensure the
+remote server's branch is fully up-to-date with the repository's origin before pushing its new changes.
+
+  ```bash
+  php artisan syncops:project-pull production --pull
+  ```
+
+* **`--no-merge` (`-m`)**: Prevents the command from automatically merging changes into your local branch after
+pushing them to the repository. This is useful if you want to inspect the changes on your local machine before
+merging them manually.
+
+  ```bash
+  php artisan syncops:project-pull production --no-merge
+  ```
+
+* **`--message`**: Specify a custom commit message for the changes on the remote server. If this option is not used,
+the default commit message will be **"Server changes"**.
+
+  ```bash
+  php artisan syncops:project-pull production --message="Updated content and layout"
+  ```
+
+#### Configuration
+
+Before using this command, ensure your remote servers are properly configured in your Laravel application's
+`config/remote.php` file. The command will use the SSH connection details from this configuration to connect
+to the remote host.
+
+
+
+
+
+
+
 
 
 
@@ -342,30 +438,6 @@ $schedule->command('project:backup dropbox --folder=files')->weeklyOn(1, '01:00'
 ```
 
 ---
-
-<a name="project-pull"></a>
-### Project:pull
-
-The command adds and commits changes on the production environment, pushes them to the git repository and then
-fetches and merges them on the local/dev environment.
-
-This command is very useful for quickly retrieving content changes that have been made on the production environment.
-Since Winter CMS stores pages, layouts, contents, etc. in static `*.htm` files, the best way to fetch these changes
-is by pushing them to the git repository and merging them locally.
-
-#### Usage in CLI
-
-```bash
-php artisan project:pull production
-```
-- where `production` is the remote server name (defined in `/config/remote.php`)
-
-The command supports some optional arguments:
-```bash
-php artisan project:pull production --pull --no-merge
-```
-- where `--pull` or `-p` is an optional argument which executes git pull command before git push
-- where `--no-merge` or `-m` is an optional argument which does not merge changes automatically
 
 ### Project:deploy
 
@@ -472,7 +544,7 @@ If you discover any security-related issues, please email info@numencode.com ins
 
 # Author
 
-**NumenCode.Widgets** plugin was created by and is maintained by [Blaz Orazem](https://www.orazem.si/).
+**NumenCode.SyncOps** plugin was created by and is maintained by [Blaz Orazem](https://www.orazem.si/).
 
 Please write an email to info@numencode.com about all the things concerning this project.
 
@@ -482,4 +554,4 @@ Follow [@blazorazem](https://twitter.com/blazorazem) on Twitter.
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-[![MIT License](https://img.shields.io/github/license/numencode/wn-backup-plugin?label=License&color=blue&style=flat-square&cacheSeconds=600)](https://github.com/numencode/wn-backup-plugin/blob/main/LICENSE.md)
+[![MIT License](https://img.shields.io/github/license/numencode/wn-syncops-plugin?label=License&color=blue&style=flat-square&cacheSeconds=600)](https://github.com/numencode/wn-syncops-plugin/blob/main/LICENSE.md)
