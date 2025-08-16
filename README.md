@@ -472,7 +472,7 @@ If you discover any security-related issues, please email info@numencode.com ins
 
 # Author
 
-**NumenCode.Widgets** plugin was created by and is maintained by [Blaz Orazem](https://www.orazem.si/).
+**NumenCode.SyncOps** plugin was created by and is maintained by [Blaz Orazem](https://www.orazem.si/).
 
 Please write an email to info@numencode.com about all the things concerning this project.
 
@@ -482,4 +482,4 @@ Follow [@blazorazem](https://twitter.com/blazorazem) on Twitter.
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-[![MIT License](https://img.shields.io/github/license/numencode/wn-backup-plugin?label=License&color=blue&style=flat-square&cacheSeconds=600)](https://github.com/numencode/wn-backup-plugin/blob/main/LICENSE.md)
+[![MIT License](https://img.shields.io/github/license/numencode/wn-syncops-plugin?label=License&color=blue&style=flat-square&cacheSeconds=600)](https://github.com/numencode/wn-syncops-plugin/blob/main/LICENSE.md)

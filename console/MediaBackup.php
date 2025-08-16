@@ -3,7 +3,7 @@
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
-class MediaBackupCommand extends Command
+class MediaBackup extends Command
 {
     protected $signature = 'syncops:media-backup
         {cloud       : The name of the cloud storage disk to upload media files to}
@@ -22,7 +22,7 @@ class MediaBackupCommand extends Command
             $cloudStorage = Storage::disk($cloud);
         } catch (\InvalidArgumentException $e) {
             $this->error("Error: The cloud storage disk '{$cloud}' is not configured. Please check your config/filesystems.php.");
-            return;
+            return Command::FAILURE;
         }
 
         $files = array_filter(Storage::allFiles(), function ($file) {
@@ -33,11 +33,12 @@ class MediaBackupCommand extends Command
 
         if ($fileCount === 0) {
             $this->warn('No media files found to upload.');
-            return;
+            return Command::SUCCESS;
         }
 
         if ($this->option('dry-run')) {
-            return $this->dryRun($files);
+            $this->dryRun($files);
+            return Command::SUCCESS;
         }
 
         $this->line(PHP_EOL . "Uploading {$fileCount} media file(s) to cloud storage \"{$cloud}\"..." . PHP_EOL);
