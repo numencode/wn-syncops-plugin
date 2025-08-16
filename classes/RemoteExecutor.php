@@ -64,25 +64,31 @@ class RemoteExecutor
 
     public function runAndPrint(array $commands, ?string $path = null): string
     {
-        return $this->run($commands, true, $path);
+        return trim($this->run($commands, true, $path));
     }
 
-    public function hasNoUncommittedChanges(): bool
+    public function runAndGet(string $command, ?string $path = null): string
+    {
+        return trim($this->run([$command], false, $path));
+    }
+
+    public function remoteIsClean(): bool
     {
         $result = $this->run(['git status --porcelain']);
 
         return trim($result) === '';
     }
 
-    public function abortIfUncommittedChanges(): void
+    public function abortIfRemoteHasChanges(): void
     {
-        if (!$this->hasNoUncommittedChanges()) {
-            $this->runAndPrint(['git status']);
+        if (!$this->remoteIsClean()) {
+            $status = $this->run(['git status']);
 
-            echo "\nRemote changes detected. Aborting deployment.\n";
-            echo "Please run: php artisan project:pull {$this->server}\n";
-
-            exit(1);
+            throw new \RuntimeException(
+                "Remote changes detected on [{$this->server}].\n\n" .
+                "Git status:\n{$status}\n" .
+                "Please run: php artisan syncops:project-pull {$this->server}"
+            );
         }
     }
 }
