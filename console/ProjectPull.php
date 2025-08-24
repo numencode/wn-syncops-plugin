@@ -8,8 +8,8 @@ class ProjectPull extends Command
 {
     protected $signature = 'syncops:project-pull
         {server       : The name of the remote server}
-        {--p|pull     : Execute "git pull" on the remote before pushing changes}
         {--m|no-merge : Do not merge changes into the local branch automatically}
+        {--p|pull     : Execute "git pull" on the remote before pushing changes}
         {--message=   : Commit message for server changes (default: "Server changes")}';
 
     protected $description = 'Commits untracked changes on the remote server, pushes them to the origin,
