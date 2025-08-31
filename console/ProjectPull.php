@@ -1,11 +1,13 @@
 <?php namespace NumenCode\SyncOps\Console;
 
 use Illuminate\Console\Command;
-use Symfony\Component\Process\Process;
 use NumenCode\SyncOps\Classes\RemoteExecutor;
+use NumenCode\SyncOps\Traits\RunsLocalCommands;
 
 class ProjectPull extends Command
 {
+    use RunsLocalCommands;
+
     protected $signature = 'syncops:project-pull
         {server       : The name of the remote server}
         {--m|no-merge : Do not merge changes into the local branch automatically}
@@ -15,7 +17,7 @@ class ProjectPull extends Command
     protected $description = 'Commits untracked changes on the remote server, pushes them to the origin,
                               and optionally merges them into the local branch.';
 
-    public function handle(RemoteExecutor $executor): int
+    public function handle(RemoteExecutor $executor)
     {
         $executor->connect($this->argument('server'));
 
@@ -46,24 +48,11 @@ class ProjectPull extends Command
 
         if (!$this->option('no-merge')) {
             $this->line('Merging the changes locally:');
-            $this->runLocalCommand(['git fetch']);
-            $this->runLocalCommand(['git merge origin/' . $executor->config['branch_prod']]);
+            $this->info($this->runLocalCommand(['git fetch']));
+            $this->info($this->runLocalCommand(['git merge origin/' . $executor->config['branch_prod']]));
         }
 
         $this->info(PHP_EOL . '✔ Changes were successfully pulled into the local project.');
         return Command::SUCCESS;
-    }
-
-    protected function runLocalCommand(array $command): void
-    {
-        $process = Process::fromShellCommandline(implode(' ', $command));
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            $this->error("Command failed: {$process->getErrorOutput()}");
-            throw new \RuntimeException("Failed to execute command: " . implode(' ', $command));
-        }
-
-        $this->info($process->getOutput());
     }
 }
