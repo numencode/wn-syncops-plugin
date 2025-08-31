@@ -7,7 +7,7 @@ use NumenCode\SyncOps\Console\DbPullCommand;
 use NumenCode\SyncOps\Console\DbBackupCommand;
 use NumenCode\SyncOps\Console\MediaPullCommand;
 use NumenCode\SyncOps\Console\ProjectBackupCommand;
-use NumenCode\SyncOps\Console\ProjectCommitCommand;
+use NumenCode\SyncOps\Console\ProjectPushCommand;
 use NumenCode\SyncOps\Console\ProjectDeployCommand;
 
 class Plugin extends PluginBase
