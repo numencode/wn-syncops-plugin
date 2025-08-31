@@ -251,9 +251,9 @@ If no folder is specified, the default target folder on the cloud storage will b
 
 The `syncops:media-backup` command supports the following options for more control over the backup process:
 
-* **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being uploaded
-and files that are skipped because they already exist and have the same size in the cloud storage. When this option
-is used, the progress bar will be hidden.
+* **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being
+uploaded and files that are skipped because they already exist and have the same size in the cloud storage.
+When this option is used, the progress bar will be hidden.
 
   ```bash
   php artisan syncops:media-backup dropbox --log
@@ -298,6 +298,50 @@ public function registerSchedule(Schedule $schedule)
 ```
 
 This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
+
+---
+
+### Command: `syncops:project-push`
+
+The `syncops:project-push` command automates the process of committing and pushing local project changes to your
+Git repository. It’s especially useful when working on Winter CMS projects where content or code adjustments
+have been made directly on a development or staging server, and you want to persist those changes in Git.
+
+This command performs the following actions:
+
+1. Checks for uncommitted changes in your local working directory.
+2. If changes are detected, stages all modified and new files (`git add --all`).
+3. Commits the changes with either a default or custom commit message.
+4. Pushes the commit to your remote Git repository.
+
+This ensures that local adjustments are always tracked and versioned,
+keeping your project repository in sync with your environment.
+
+#### Usage in CLI
+
+To run the command:
+
+```bash
+php artisan syncops:project-push
+```
+
+By default, this will commit with the message **"Server changes"** and push them to your configured remote.
+
+#### Options
+
+The `syncops:project-push` command supports the following option:
+
+* **`--message` (`-m`)**: Specify a custom commit message for the changes.
+If not provided, the default message is **"Server changes"**.
+
+  ```bash
+  php artisan syncops:project-commit --message="Custom commit message"
+  ```
+
+#### Configuration
+
+This command runs entirely **locally** and does not require a remote server configuration.
+It uses your current Git settings (branch, remote, and authentication) to push changes.
 
 ---
 
@@ -464,27 +508,6 @@ php artisan project:deploy production --fast --composer --migrate --sudo
 
 ---
 
-<a name="project-commit"></a>
-### Project:commit
-
-The command adds and commits all the changes to the git repository with a default message of `Server changes`.
-Changes are committed to the branch that is currently checked-out.
-
-This command is useful when it's set in the scheduler so that it adds and commits changes every day for example.
-
-#### Usage in CLI
-
-```bash
-php artisan project:commit "This is a custom commit message"
-```
-
-The commit message argument is optional, and it defaults to `"Server changes"` message.
-
-#### Usage in Scheduler
-
-```
-$schedule->command('project:commit')->daily()->at('04:00');
-```
 
 ---
 
