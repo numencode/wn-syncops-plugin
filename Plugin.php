@@ -1,13 +1,13 @@
 <?php namespace NumenCode\SyncOps;
 
 use System\Classes\PluginBase;
-use NumenCode\SyncOps\Console\MediaBackup;
+use NumenCode\SyncOps\Console\DbPush;
+use NumenCode\SyncOps\Console\MediaPush;
 use NumenCode\SyncOps\Console\ProjectPull;
+use NumenCode\SyncOps\Console\ProjectPush;
 use NumenCode\SyncOps\Console\DbPullCommand;
-use NumenCode\SyncOps\Console\DbBackupCommand;
 use NumenCode\SyncOps\Console\MediaPullCommand;
 use NumenCode\SyncOps\Console\ProjectBackupCommand;
-use NumenCode\SyncOps\Console\ProjectPushCommand;
 use NumenCode\SyncOps\Console\ProjectDeployCommand;
 
 class Plugin extends PluginBase
@@ -38,12 +38,12 @@ class Plugin extends PluginBase
     protected function registerConsoleCommands()
     {
 //        $this->registerConsoleCommand('syncops.db_pull', DbPullCommand::class);
-//        $this->registerConsoleCommand('syncops.db_backup', DbBackupCommand::class);
+        $this->registerConsoleCommand('syncops.db_push', DbPush::class);
 //        $this->registerConsoleCommand('syncops.media_pull', MediaPullCommand::class);
-        $this->registerConsoleCommand('syncops.media_backup', MediaBackup::class);
+        $this->registerConsoleCommand('syncops.media_backup', MediaPush::class);
         $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
-//        $this->registerConsoleCommand('syncops.project_backup', ProjectBackupCommand::class);
-//        $this->registerConsoleCommand('syncops.project_commit', ProjectCommitCommand::class);
+        $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
 //        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeployCommand::class);
+//        $this->registerConsoleCommand('syncops.project_backup', ProjectBackupCommand::class);
     }
 }
