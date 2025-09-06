@@ -3,9 +3,9 @@
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
-class MediaBackup extends Command
+class MediaPush extends Command
 {
-    protected $signature = 'syncops:media-backup
+    protected $signature = 'syncops:media-push
         {cloud       : The name of the cloud storage disk to upload media files to}
         {folder?     : The target folder name in the cloud storage (default: "storage")}
         {--l|log     : Show details for each file being processed}

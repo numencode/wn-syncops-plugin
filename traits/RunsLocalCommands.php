@@ -1,16 +1,27 @@
-<?php namespace NumenCode\SyncOps\Traits;
+<?php
+
+namespace NumenCode\SyncOps\Traits;
 
 use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 trait RunsLocalCommands
 {
+    /**
+     * Runs a local command in the shell.
+     *
+     * @param array $command The command and its arguments to run.
+     * @return string The output from the command.
+     * @throws \RuntimeException on command failure.
+     */
     protected function runLocalCommand(array $command): string
     {
-        $process = Process::fromShellCommandline(implode(' ', $command));
+        $process = new Process($command);
+        $process->setWorkingDirectory(base_path());
         $process->run();
 
         if (!$process->isSuccessful()) {
-            throw new \RuntimeException("Command failed: {$process->getErrorOutput()}");
+            throw new ProcessFailedException($process);
         }
 
         return $process->getOutput();

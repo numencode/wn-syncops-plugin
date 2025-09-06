@@ -5,24 +5,24 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
-class DbBackupCommand extends Command
+class DbPush extends Command
 {
-    protected $signature = 'db:backup
-        {cloudName?      : Cloud storage where the dump file is uploaded}
+    protected $signature = 'syncops:db-push
+        {cloud?          : Cloud storage where the dump file is uploaded}
         {--folder=       : The name of the folder where the dump file is stored (local and/or on the cloud storage)}
         {--timestamp=    : Date format used for naming the dump file, default: Y-m-d_H-i-s}
         {--d|--no-delete : Do not delete the dump file after the upload to the cloud storage}';
 
     protected $description = 'Create a database dump and optionally upload it to the cloud storage.';
 
-    protected $dumpFile;
+    protected string $dumpFilename;
 
     public function handle()
     {
         $folder = $this->resolveFolderName($this->option('folder'));
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
 
-        $this->dumpFile = Carbon::now()->format($timestamp) . '.sql.gz';
+        $this->dumpFilename = Carbon::now()->format($timestamp) . '.sql.gz';
 
         $connection = config('database.default');
         $dbUser = config('database.connections.' . $connection . '.username');
@@ -30,19 +30,19 @@ class DbBackupCommand extends Command
         $dbName = config('database.connections.' . $connection . '.database');
 
         $this->line(PHP_EOL . 'Creating database dump file...');
-        shell_exec("mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFile}");
+        shell_exec("mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFilename}");
         $this->info('Database dump file successfully created.' . PHP_EOL);
 
-        if ($this->argument('cloudName')) {
-            $cloudStorage = Storage::disk($this->argument('cloudName'));
+        if ($this->argument('cloud')) {
+            $cloudStorage = Storage::disk($this->argument('cloud'));
 
             $this->line('Uploading database dump file to the cloud storage...');
-            $cloudStorage->put($folder . $this->dumpFile, file_get_contents($this->dumpFile));
+            $cloudStorage->put($folder . $this->dumpFilename, file_get_contents($this->dumpFilename));
             $this->info('Database dump file successfully uploaded.' . PHP_EOL);
 
             if (!$this->option('no-delete')) {
                 $this->line('Deleting the database dump file...');
-                shell_exec("rm -f {$this->dumpFile}");
+                shell_exec("rm -f {$this->dumpFilename}");
                 $this->info('Database dump file successfully deleted.' . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
@@ -63,6 +63,6 @@ class DbBackupCommand extends Command
             File::makeDirectory($folder, 0777, true, true);
         }
 
-        File::move($this->dumpFile, $folder . $this->dumpFile);
+        File::move($this->dumpFilename, $folder . $this->dumpFilename);
     }
 }
