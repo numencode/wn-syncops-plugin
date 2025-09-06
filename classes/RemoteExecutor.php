@@ -100,7 +100,7 @@ class RemoteExecutor
     {
         $escapedParts = array_map('escapeshellarg', $commandParts);
         $safeCommand = implode(' ', $escapedParts);
-        $fullCommand = "cd " . escapeshellarg($cwd) . " && {$safeCommand}";
+        $fullCommand = "cd " . escapeshellarg(str_replace('~', '$HOME', $cwd)) . " && {$safeCommand}";
 
         $output = $this->ssh->exec($fullCommand);
 
