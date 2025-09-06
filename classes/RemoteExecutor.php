@@ -24,7 +24,7 @@ class RemoteExecutor
             ? $this->config['password']
             : PublicKeyLoader::load(file_get_contents($this->config['key_path']));
 
-        if (!$this->ssh->login($this->config['username'], $credentials)) {
+        if (!$this->ssh->login($this->config['user'], $credentials)) {
             throw new \RuntimeException("SSH login failed for server: {$server}.");
         }
 
