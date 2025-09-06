@@ -52,7 +52,7 @@ by name. Simply populate the credentials in the connections array via your envir
 ---
 ---
 ---
-# WIP ON THIS
+# WIP ON THIS ***********************************************************************************************
 
 #### Configuration
 
@@ -137,48 +137,16 @@ cloud storage for media files, database synchronization and more.
 
 ## Commands
 
-| Command                           | Description                                                                                     |
-| :-------------------------------- | :---------------------------------------------------------------------------------------------- |
-| [db:backup](#db-backup)           | Create a database dump file and upload it to the cloud storage                                  |
-| [db:pull](#db-pull)               | Transfer changes from the production database to the local/dev database                         |
-| [media:backup](#media-backup)     | Upload all the media files to the cloud storage                                                 |
-| [media:pull](#media-pull)         | Transfer all the media files from production to the local/dev environment via the cloud storage |
-| [project:backup](#project-backup) | Create a compressed archive of all the project files and upload it to the cloud storage         |
-| [project:pull](#project-pull)     | Transfer file changes from the production to the local/dev environment via Git                  |
-| [project:commit](#project-pull)   | Add, commit and push file changes to Git                                                        |
-
----
-
-<a name="db-backup"></a>
-### Db:backup
-
-The command creates a compressed SQL dump file of the project's default database. The name of the archive is the
-current timestamp with the extension of `.sql.gz`. The timestamp format can be explicitly specified - the default
-format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud storage, if an argument is provided.
-
-This command is useful if it's set in the Scheduler to create a complete daily database backup and upload it to the
-cloud storage.
-
-#### Usage in CLI
-
-```bash
-php artisan db:backup
-```
-
-The command supports some optional arguments:
-```bash
-php artisan db:backup cloudName --folder=database --timestamp=d-m-Y --no-delete
-```
-- `cloudName` is the cloud storage where the archive is uploaded (defined in `/config/filesystems.php`)
-- `--folder` is the name of the folder where the archive is stored (local and/or on the cloud storage)
-- `--timestamp` is a date format used for naming the archive file (default: `Y-m-d_H-i-s`)
-- `--no-delete` or `-d` prevents deleting the local archive file after it's uploaded to the cloud storage
-
-#### Usage in Scheduler
-
-```
-$schedule->command('db:backup dropbox --folder=database')->dailyAt('02:00');
-```
+| Command                                   | Description                                                                                     |
+|:------------------------------------------|:------------------------------------------------------------------------------------------------|
+| [syncops:db-push](#db-push)               | Create a database dump file and upload it to the cloud storage                                  |
+| [syncops:db-pull](#db-pull)               | Transfer changes from the production database to the local/dev database                         |
+| [syncops:media-push](#media-push)         | Upload all the media files to the cloud storage                                                 |
+| [syncops:media-pull](#media-pull)         | Transfer all the media files from production to the local/dev environment via the cloud storage |
+| [project:backup](#project-backup)         | Create a compressed archive of all the project files and upload it to the cloud storage         |
+| [syncops:project-pull](#project-pull)     | Transfer file changes from the production to the local/dev environment via Git                  |
+| [syncops:project-push](#project-push)     | Add, commit and push file changes to Git                                                        |
+| [syncops:project-deploy](#project-deploy) | TBD                                                                                             |
 
 ---
 
@@ -209,16 +177,54 @@ php artisan db:pull production --no-import
 
 
 
+
+
+
+
+
+
 -----
 -----
 -----
 
-# DONE
 
-<a name="media-backup"></a>
-### Command: `syncops:media-backup`
+<a name="db-push"></a>
+### Command: `syncops:db-push`
 
-The `syncops:media-backup` command efficiently uploads all media files from your Winter CMS installation
+The command creates a compressed SQL dump file of the project's default database. The name of the archive is the
+current timestamp with the extension of `.sql.gz`. The timestamp format can be explicitly specified - the default
+format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud storage, if an argument is provided.
+
+This command is useful if it's set in the Scheduler to create a complete daily database backup and upload it to the
+cloud storage.
+
+#### Usage in CLI
+
+```bash
+php artisan syncops:db-push
+```
+
+The command supports some optional arguments:
+```bash
+php artisan syncops:db-push cloud --folder=database --timestamp=d-m-Y --no-delete
+```
+- `cloud` is the cloud storage where the archive is uploaded (defined in `/config/filesystems.php`)
+- `--folder` is the name of the folder where the archive is stored (local and/or on the cloud storage)
+- `--timestamp` is a date format used for naming the archive file (default: `Y-m-d_H-i-s`)
+- `--no-delete` or `-d` prevents deleting the local archive file after it's uploaded to the cloud storage
+
+#### Usage in Scheduler
+
+```
+$schedule->command('syncops:db-push dropbox --folder=database')->dailyAt('02:00');
+```
+
+---
+
+<a name="media-push"></a>
+### Command: `syncops:media-push`
+
+The `syncops:media-push` command efficiently uploads all media files from your Winter CMS installation
 (specifically from the `storage/app` directory) to a specified cloud storage disk.
 
 This command is ideal for creating routine media backups. When integrated with the Winter CMS Scheduler, it enables
@@ -232,7 +238,7 @@ By default, the command excludes `.gitignore` files and any files located within
 To run the command, you need to specify the cloud storage disk name (as defined in your `config/filesystems.php`).
 
 ```bash
-php artisan syncops:media-backup dropbox
+php artisan syncops:media-push dropbox
 ```
 
 In this example, `dropbox` is the name of your configured cloud storage disk.
@@ -241,7 +247,7 @@ You can also specify an optional target folder within your cloud storage.
 This folder will serve as the base directory for your uploaded media files.
 
 ```bash
-php artisan syncops:media-backup dropbox my-project-media
+php artisan syncops:media-push dropbox my-project-media
 ```
 
 If `my-project-media` is provided, files will be uploaded to a path like `dropbox://my-project-media/storage/...`.
@@ -249,27 +255,27 @@ If no folder is specified, the default target folder on the cloud storage will b
 
 #### Options
 
-The `syncops:media-backup` command supports the following options for more control over the backup process:
+The `syncops:media-push` command supports the following options for more control over the backup process:
 
 * **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being
-uploaded and files that are skipped because they already exist and have the same size in the cloud storage.
-When this option is used, the progress bar will be hidden.
+  uploaded and files that are skipped because they already exist and have the same size in the cloud storage.
+  When this option is used, the progress bar will be hidden.
 
   ```bash
-  php artisan syncops:media-backup dropbox --log
+  php artisan syncops:media-push dropbox --log
   ```
 
 * **`--dry-run` (`-D`)**: Simulate the backup process without actually uploading any files.
-This allows you to see which files would be processed, making it useful for testing and verifying your setup.
+  This allows you to see which files would be processed, making it useful for testing and verifying your setup.
 
   ```bash
-  php artisan syncops:media-backup dropbox --dry-run
+  php artisan syncops:media-push dropbox --dry-run
   ```
 
 #### Configuration
 
-Before using this command, ensure your cloud storage disks are properly configured in your Laravel
-application's `config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
+Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
+`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
 
 ```php
 // config/filesystems.php
@@ -293,13 +299,24 @@ use Illuminate\Console\Scheduling\Schedule;
 
 public function registerSchedule(Schedule $schedule)
 {
-    $schedule->command('syncops:media-backup dropbox')->dailyAt('03:00');
+    $schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
 }
 ```
 
 This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
 
 ---
+
+
+
+
+
+
+
+
+
+
+# DONE *****************************************************************************************
 
 ### Command: `syncops:project-push`
 
