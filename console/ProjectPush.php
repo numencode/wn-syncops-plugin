@@ -20,7 +20,7 @@ class ProjectPush extends Command
             $status = $this->runLocalCommand('git status --porcelain');
 
             if (empty($status)) {
-                $this->info('✔ No changes to commit. Everything is up-to-date.');
+                $this->info('✔ No changes to commit. Everything is up-to-date.' . PHP_EOL);
                 return Command::SUCCESS;
             }
 
@@ -44,7 +44,7 @@ class ProjectPush extends Command
             return Command::FAILURE;
         }
 
-        $this->info('✔ Project changes were successfully pushed.');
+        $this->info('✔ Project changes were successfully pushed.' . PHP_EOL);
         return Command::SUCCESS;
     }
 }
