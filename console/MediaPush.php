@@ -21,7 +21,7 @@ class MediaPush extends Command
         try {
             $cloudStorage = Storage::disk($cloud);
         } catch (\InvalidArgumentException $e) {
-            $this->error("Error: The cloud storage disk '{$cloud}' is not configured. Please check your config/filesystems.php.");
+            $this->error("✘ The cloud storage disk '{$cloud}' is not configured. Please check your config/filesystems.php.");
             return Command::FAILURE;
         }
 
