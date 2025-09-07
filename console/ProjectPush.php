@@ -17,10 +17,10 @@ class ProjectPush extends Command
     {
         try {
             $this->comment('Checking for local changes...');
-            $status = $this->runLocalCommand(['git', 'status', '--porcelain']);
+            $status = $this->runLocalCommand('git status --porcelain');
 
             if (empty($status)) {
-                $this->info('✔ No changes to commit. Everything is up-to-date.');
+                $this->info('✔ No changes to commit. Everything is up-to-date.' . PHP_EOL);
                 return Command::SUCCESS;
             }
 
@@ -28,13 +28,13 @@ class ProjectPush extends Command
             $commitMessage = $this->option('message');
 
             $this->line('Adding all changes...');
-            $this->runLocalCommand(['git', 'add', '--all']);
+            $this->runLocalCommand('git add --all');
 
             $this->line("Committing with message: '{$commitMessage}'");
-            $this->runLocalCommand(['git', 'commit', '-m', $commitMessage]);
+            $this->runLocalCommand("git commit -m '{$commitMessage}'");
 
             $this->line('Pushing changes to the remote repository...');
-            $pushOutput = $this->runLocalCommand(['git', 'push']);
+            $pushOutput = $this->runLocalCommand('git push');
             $this->info($pushOutput);
 
         } catch (ProcessFailedException $e) {
@@ -44,7 +44,7 @@ class ProjectPush extends Command
             return Command::FAILURE;
         }
 
-        $this->info('✔ Project changes were successfully pushed.');
+        $this->info('✔ Project changes were successfully pushed.' . PHP_EOL);
         return Command::SUCCESS;
     }
 }
