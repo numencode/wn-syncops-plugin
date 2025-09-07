@@ -137,21 +137,21 @@ cloud storage for media files, database synchronization and more.
 
 ## Commands
 
-| Command                                   | Description                                                                                     |
-|:------------------------------------------|:------------------------------------------------------------------------------------------------|
-| [syncops:db-push](#db-push)               | Create a database dump file and upload it to the cloud storage                                  |
-| [syncops:db-pull](#db-pull)               | Transfer changes from the production database to the local/dev database                         |
-| [syncops:media-push](#media-push)         | Upload all the media files to the cloud storage                                                 |
-| [syncops:media-pull](#media-pull)         | Transfer all the media files from production to the local/dev environment via the cloud storage |
-| [project:backup](#project-backup)         | Create a compressed archive of all the project files and upload it to the cloud storage         |
-| [syncops:project-pull](#project-pull)     | Transfer file changes from the production to the local/dev environment via Git                  |
-| [syncops:project-push](#project-push)     | Add, commit and push file changes to Git                                                        |
-| [syncops:project-deploy](#project-deploy) | TBD                                                                                             |
+| Command                                   | Description                                                                                                                  |
+|:------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------|
+| [syncops:db-push](#db-push)               | Create a compressed database dump and optionally upload it to cloud storage.                                                 |
+| [syncops:db-pull](#db-pull)               | TBD Transfer changes from the production database to the local/dev database                                                  |
+| [syncops:media-push](#media-push)         | Backs up all media files to the specified cloud storage.                                                                     |
+| [syncops:media-pull](#media-pull)         | TBD Transfer all the media files from production to the local/dev environment via the cloud storage                          |
+| [project:backup](#project-backup)         | TBD Create a compressed archive of all the project files and upload it to the cloud storage                                  |
+| [syncops:project-deploy](#project-deploy) | TBD                                                                                                                          |
+| [syncops:project-pull](#project-pull)     | Commits untracked changes on the remote server, pushes them to the origin, and optionally merges them into the local branch. |
+| [syncops:project-push](#project-push)     | Adds and commits project changes locally and pushes them to the remote repository.                                           |
 
 ---
 
 <a name="db-pull"></a>
-### Db:pull
+### Command: `syncops:db-pull`
 
 The command connects to a remote server with SSH, creates a database dump file, transfers it to the current working
 environment (e.g. local/dev) and imports it into its database. The tables that are updated with the command are
@@ -165,13 +165,13 @@ assuming that the appropriate credentials are set.
 #### Usage in CLI
 
 ```bash
-php artisan db:pull production
+php artisan syncops:db-pull production
 ```
 - where `production` is the remote server name (defined in `/config/remote.php`)
 
 The command supports one optional argument:
 ```bash
-php artisan db:pull production --no-import
+php artisan syncops:db-pull production --no-import
 ```
 - `--no-import` or `-i` prevents importing data automatically and leaves the database dump file in the project's root folder
 
@@ -180,9 +180,6 @@ php artisan db:pull production --no-import
 
 
 
-
-
-
 -----
 -----
 -----
@@ -191,95 +188,6 @@ php artisan db:pull production --no-import
 
 
 
-
-
-
-
-
-
-
----
-
-<a name="media-push"></a>
-### Command: `syncops:media-push`
-
-The `syncops:media-push` command efficiently uploads all media files from your Winter CMS installation
-(specifically from the `storage/app` directory) to a specified cloud storage disk.
-
-This command is ideal for creating routine media backups. When integrated with the Winter CMS Scheduler, it enables
-automated daily backups to your chosen cloud storage, ensuring your media assets are always safe and accessible.
-
-By default, the command excludes `.gitignore` files and any files located within `/thumb/` directories
-(which typically contain generated image thumbnails) to optimize upload times and storage space.
-
-#### Usage in CLI
-
-To run the command, you need to specify the cloud storage disk name (as defined in your `config/filesystems.php`).
-
-```bash
-php artisan syncops:media-push dropbox
-```
-
-In this example, `dropbox` is the name of your configured cloud storage disk.
-
-You can also specify an optional target folder within your cloud storage.
-This folder will serve as the base directory for your uploaded media files.
-
-```bash
-php artisan syncops:media-push dropbox my-project-media
-```
-
-If `my-project-media` is provided, files will be uploaded to a path like `dropbox://my-project-media/storage/...`.
-If no folder is specified, the default target folder on the cloud storage will be `storage/`.
-
-#### Options
-
-The `syncops:media-push` command supports the following options for more control over the backup process:
-
-* **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being
-  uploaded and files that are skipped because they already exist and have the same size in the cloud storage.
-  When this option is used, the progress bar will be hidden.
-
-  ```bash
-  php artisan syncops:media-push dropbox --log
-  ```
-
-* **`--dry-run` (`-D`)**: Simulate the backup process without actually uploading any files.
-  This allows you to see which files would be processed, making it useful for testing and verifying your setup.
-
-  ```bash
-  php artisan syncops:media-push dropbox --dry-run
-  ```
-
-#### Configuration
-
-Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
-`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
-
-```php
-// config/filesystems.php
-
-'disks' => [
-    // ... other disks
-
-    'dropbox' => [
-        'driver' => 'dropbox',
-    ],
-],
-```
-
-#### Usage in Scheduler
-
-To automate your media backups, add the command to your Winter CMS Scheduler
-(typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
-
-```php
-$schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
-```
-
-This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
-
----
 
 
 
@@ -354,6 +262,87 @@ This example schedules a daily backup of your database to the `dropbox` disk eve
 
 ---
 
+<a name="media-push"></a>
+### Command: `syncops:media-push`
+
+The `syncops:media-push` command efficiently uploads all media files from your Winter CMS installation
+(specifically from the `storage/app` directory) to a specified cloud storage disk.
+
+This command is ideal for creating routine media backups. When integrated with the Winter CMS Scheduler, it enables
+automated daily backups to your chosen cloud storage, ensuring your media assets are always safe and accessible.
+
+By default, the command excludes `.gitignore` files and any files located within `/thumb/` directories
+(which typically contain generated image thumbnails) to optimize upload times and storage space.
+
+#### Usage in CLI
+
+To run the command, you need to specify the cloud storage disk name (as defined in your `config/filesystems.php`).
+
+```bash
+php artisan syncops:media-push dropbox
+```
+
+In this example, `dropbox` is the name of your configured cloud storage disk.
+
+You can also specify an optional target folder within your cloud storage.
+This folder will serve as the base directory for your uploaded media files.
+
+```bash
+php artisan syncops:media-push dropbox my-project-media
+```
+
+If `my-project-media` is provided, files will be uploaded to a path like `dropbox://my-project-media/storage/...`.
+If no folder is specified, the default target folder on the cloud storage will be `storage/`.
+
+#### Options & arguments
+
+The `syncops:media-push` command supports the following options for more control over the backup process:
+
+* **`--log` (`-L`)**: Display details for each file as it's processed. This includes messages for files being
+  uploaded and files that are skipped because they already exist and have the same size in the cloud storage.
+  When this option is used, the progress bar will be hidden.
+
+  ```bash
+  php artisan syncops:media-push dropbox --log
+  ```
+
+* **`--dry-run` (`-D`)**: Simulate the backup process without actually uploading any files.
+  This allows you to see which files would be processed, making it useful for testing and verifying your setup.
+
+  ```bash
+  php artisan syncops:media-push dropbox --dry-run
+  ```
+
+#### Configuration
+
+Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
+`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
+
+```php
+// config/filesystems.php
+
+'disks' => [
+    // ... other disks
+
+    'dropbox' => [
+        'driver' => 'dropbox',
+    ],
+],
+```
+
+#### Usage in Scheduler
+
+To automate your media backups, add the command to your Winter CMS Scheduler
+(typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
+
+```php
+$schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
+```
+
+This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
+
+---
+
 <a name="project-pull"></a>
 ### Command: `syncops:project-pull`
 
@@ -386,22 +375,22 @@ In this example, `production` is the name of your configured remote server.
 The `syncops:project-pull` command supports the following options for more control over the synchronization process:
 
 * **`--pull` (`-p`)**: Executes a `git pull` on the remote server before pushing changes. Use this to ensure the
-remote server's branch is fully up-to-date with the repository's origin before pushing its new changes.
+  remote server's branch is fully up-to-date with the repository's origin before pushing its new changes.
 
   ```bash
   php artisan syncops:project-pull production --pull
   ```
 
-* **`--no-merge` (`-m`)**: Prevents the command from automatically merging changes into your local branch after
-pushing them to the repository. This is useful if you want to inspect the changes on your local machine before
-merging them manually.
+* **`--no-merge` (`-m`)**: Prevents the command from automatically merging changes into your local branch
+  after pushing them to the repository. This is useful if you want to inspect the changes on your
+  local machine before merging them manually.
 
   ```bash
   php artisan syncops:project-pull production --no-merge
   ```
 
-* **`--message`**: Specify a custom commit message for the changes on the remote server. If this option is not used,
-the default commit message will be **"Server changes"**.
+* **`--message`**: Specify a custom commit message for the changes on the remote server.
+  If this option is not used, the default commit message will be **"Server changes"**.
 
   ```bash
   php artisan syncops:project-pull production --message="Updated content and layout"
