@@ -188,36 +188,15 @@ php artisan db:pull production --no-import
 -----
 
 
-<a name="db-push"></a>
-### Command: `syncops:db-push`
 
-The command creates a compressed SQL dump file of the project's default database. The name of the archive is the
-current timestamp with the extension of `.sql.gz`. The timestamp format can be explicitly specified - the default
-format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud storage, if an argument is provided.
 
-This command is useful if it's set in the Scheduler to create a complete daily database backup and upload it to the
-cloud storage.
 
-#### Usage in CLI
 
-```bash
-php artisan syncops:db-push
-```
 
-The command supports some optional arguments:
-```bash
-php artisan syncops:db-push cloud --folder=database --timestamp=d-m-Y --no-delete
-```
-- `cloud` is the cloud storage where the archive is uploaded (defined in `/config/filesystems.php`)
-- `--folder` is the name of the folder where the archive is stored (local and/or on the cloud storage)
-- `--timestamp` is a date format used for naming the archive file (default: `Y-m-d_H-i-s`)
-- `--no-delete` or `-d` prevents deleting the local archive file after it's uploaded to the cloud storage
 
-#### Usage in Scheduler
 
-```
-$schedule->command('syncops:db-push dropbox --folder=database')->dailyAt('02:00');
-```
+
+
 
 ---
 
@@ -295,12 +274,7 @@ To automate your media backups, add the command to your Winter CMS Scheduler
 (typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
 
 ```php
-use Illuminate\Console\Scheduling\Schedule;
-
-public function registerSchedule(Schedule $schedule)
-{
-    $schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
-}
+$schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
 ```
 
 This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
@@ -318,50 +292,69 @@ This example schedules a daily backup of your media files to the `dropbox` disk 
 
 # DONE *****************************************************************************************
 
-### Command: `syncops:project-push`
+<a name="db-push"></a>
+### Command: `syncops:db-push`
 
-The `syncops:project-push` command automates the process of committing and pushing local project changes to your
-Git repository. It’s especially useful when working on Winter CMS projects where content or code adjustments
-have been made directly on a development or staging server, and you want to persist those changes in Git.
+The `syncops:db-push` command automates the process of creating a compressed SQL dump of your
+project’s default database and, if specified, uploading it to a cloud storage provider.
+
+This command is especially useful for **scheduled backups**, ensuring your production database
+is safely stored locally and in the cloud.
 
 This command performs the following actions:
 
-1. Checks for uncommitted changes in your local working directory.
-2. If changes are detected, stages all modified and new files (`git add --all`).
-3. Commits the changes with either a default or custom commit message.
-4. Pushes the commit to your remote Git repository.
-
-This ensures that local adjustments are always tracked and versioned,
-keeping your project repository in sync with your environment.
+1. Creates a `.sql.gz` dump of the configured default database.
+2. Names the file using a timestamp (format configurable via option).
+3. **Optionally** uploads the file to a cloud storage provider.
+4. **Optionally** deletes the local file after upload, unless instructed to keep it.
+5. **Optionally** moves the file to a local folder if `--folder` is specified.
 
 #### Usage in CLI
 
-To run the command:
-
 ```bash
-php artisan syncops:project-push
+php artisan syncops:db-push
 ```
 
-By default, this will commit with the message **"Server changes"** and push them to your configured remote.
+#### Options & arguments
 
-#### Options
-
-The `syncops:project-push` command supports the following option:
-
-* **`--message` (`-m`)**: Specify a custom commit message for the changes.
-If not provided, the default message is **"Server changes"**.
+* **`cloud`**: The cloud storage disk (as defined in `/config/filesystems.php`) where the dump file will be uploaded.
 
   ```bash
-  php artisan syncops:project-commit --message="Custom commit message"
+  php artisan syncops:db-push dropbox
   ```
 
-#### Configuration
+* **`--folder`**: The folder name where the dump file will be stored locally and/or on the cloud.
 
-This command runs entirely **locally** and does not require a remote server configuration.
-It uses your current Git settings (branch, remote, and authentication) to push changes.
+  ```bash
+  php artisan syncops:db-push dropbox --folder=database
+  ```
+
+* **`--timestamp`**: Date format used for naming the dump file (default: `Y-m-d_H-i-s`).
+
+  ```bash
+  php artisan syncops:db-push dropbox --timestamp=d-m-Y
+  ```
+
+* **`--no-delete` (`-d`)**: Prevents deletion of the local dump file after uploading.
+
+  ```bash
+  php artisan syncops:db-push dropbox --no-delete
+  ```
+
+#### Usage in Scheduler
+
+To automate your database backups, add the command to your Winter CMS Scheduler
+(typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
+
+```php
+$schedule->command('syncops:db-push dropbox --folder=database')->dailyAt('02:00');
+```
+
+This example schedules a daily backup of your database to the `dropbox` disk every day at 2:00 AM.
 
 ---
 
+<a name="project-pull"></a>
 ### Command: `syncops:project-pull`
 
 The `syncops:project-pull` command automates the process of synchronizing a remote production environment's code
@@ -388,7 +381,7 @@ php artisan syncops:project-pull production
 
 In this example, `production` is the name of your configured remote server.
 
-#### Options
+#### Options & arguments
 
 The `syncops:project-pull` command supports the following options for more control over the synchronization process:
 
@@ -420,7 +413,52 @@ Before using this command, ensure your remote servers are properly configured in
 `config/remote.php` file. The command will use the SSH connection details from this configuration to connect
 to the remote host.
 
+---
 
+<a name="project-push"></a>
+### Command: `syncops:project-push`
+
+The `syncops:project-push` command automates the process of committing and pushing local project changes to your
+Git repository. It’s especially useful when working on Winter CMS projects where content or code adjustments
+have been made directly on a development or staging server, and you want to persist those changes in Git.
+
+This command performs the following actions:
+
+1. Checks for uncommitted changes in your local working directory.
+2. If changes are detected, stages all modified and new files (`git add --all`).
+3. Commits the changes with either a default or custom commit message.
+4. Pushes the commit to your remote Git repository.
+
+This ensures that local adjustments are always tracked and versioned,
+keeping your project repository in sync with your environment.
+
+#### Usage in CLI
+
+To run the command:
+
+```bash
+php artisan syncops:project-push
+```
+
+By default, this will commit with the message **"Server changes"** and push them to your configured remote.
+
+#### Options & arguments
+
+The `syncops:project-push` command supports the following option:
+
+* **`--message` (`-m`)**: Specify a custom commit message for the changes.
+  If not provided, the default message is **"Server changes"**.
+
+  ```bash
+  php artisan syncops:project-commit --message="Custom commit message"
+  ```
+
+#### Configuration
+
+This command runs entirely **locally** and does not require a remote server configuration.
+It uses your current Git settings (branch, remote, and authentication) to push changes.
+
+---
 
 
 
