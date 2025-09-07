@@ -8,16 +8,15 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 trait RunsLocalCommands
 {
     /**
-     * Runs a local command in the shell.
+     * Runs a local shell command.
      *
-     * @param array $command The command and its arguments to run.
+     * @param string $command The shell command to run.
      * @return string The output from the command.
      * @throws \RuntimeException on command failure.
      */
-    protected function runLocalCommand(array $command): string
+    protected function runLocalCommand(string $command): string
     {
-        $process = new Process($command);
-        $process->setWorkingDirectory(base_path());
+        $process = Process::fromShellCommandline($command, base_path());
         $process->run();
 
         if (!$process->isSuccessful()) {
