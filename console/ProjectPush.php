@@ -13,7 +13,7 @@ class ProjectPush extends Command
 
     protected $description = 'Adds and commits project changes locally and pushes them to the remote repository.';
 
-    public function handle()
+    public function handle(): int
     {
         try {
             $this->comment('Checking for local changes...');

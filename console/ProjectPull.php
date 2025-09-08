@@ -18,7 +18,7 @@ class ProjectPull extends Command
     protected $description = 'Commits untracked changes on the remote server, pushes them to the origin,
                               and optionally merges them into the local branch.';
 
-    public function handle(RemoteExecutor $executor)
+    public function handle(RemoteExecutor $executor): int
     {
         try {
             $this->comment("Connecting to remote server '{$this->argument('server')}'...");
