@@ -1,7 +1,6 @@
 <?php namespace NumenCode\SyncOps\Console;
 
 use File;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -24,7 +23,7 @@ class ProjectBackupCommand extends Command
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
         $exclude = $this->prepareExcludeList($this->option('exclude'));
 
-        $this->archiveFile = Carbon::now()->format($timestamp) . '.tar.gz';
+        $this->archiveFile = now()->format($timestamp) . '.tar.gz';
 
         $this->line(PHP_EOL . 'Creating project archive...');
         shell_exec("tar -pczf {$this->archiveFile} {$exclude} .");

@@ -1,6 +1,5 @@
 <?php namespace NumenCode\SyncOps\Console;
 
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +24,7 @@ class DbPush extends Command
         $folder = $this->resolveFolderName($this->option('folder'));
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
 
-        $this->dumpFilename = Carbon::now()->format($timestamp) . '.sql.gz';
+        $this->dumpFilename = now()->format($timestamp) . '.sql.gz';
 
         $connection = config('database.default');
         $dbUser = config('database.connections.' . $connection . '.username');
@@ -40,12 +39,16 @@ class DbPush extends Command
             $cloudStorage = Storage::disk($this->argument('cloud'));
 
             $this->line('Uploading database dump file to cloud storage...');
-            $cloudStorage->put($folder . $this->dumpFilename, file_get_contents($this->dumpFilename));
+            $localFileStream = fopen($this->dumpFilename, 'r');
+            $cloudStorage->put($folder . $this->dumpFilename, $localFileStream);
+            if (is_resource($localFileStream)) {
+                fclose($localFileStream);
+            }
             $this->info('Database dump file successfully uploaded.' . PHP_EOL);
 
             if (!$this->option('no-delete')) {
                 $this->line('Deleting the local dump file...');
-                $this->runLocalCommand("rm -f {$this->dumpFilename}");
+                File::delete($this->dumpFilename);
                 $this->info('Local dump file successfully deleted.' . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
