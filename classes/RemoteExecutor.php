@@ -114,4 +114,11 @@ class RemoteExecutor
 
         return $output;
     }
+
+//    use phpseclib3\Net\SFTP; // Add this at the top
+//
+//    public function getSftp(): SFTP
+//    {
+//        return new SFTP($this->config['host']);
+//    }
 }
