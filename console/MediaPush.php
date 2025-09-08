@@ -13,7 +13,7 @@ class MediaPush extends Command
 
     protected $description = 'Backs up all media files to the specified cloud storage.';
 
-    public function handle()
+    public function handle(): int
     {
         $cloud = $this->argument('cloud');
         $folder = $this->argument('folder');
