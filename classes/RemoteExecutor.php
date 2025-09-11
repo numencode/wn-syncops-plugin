@@ -26,7 +26,7 @@ class RemoteExecutor
 
         $this->ssh = new SSH2($this->config['host'], $this->config['port'] ?? 22);
 
-        $credentials = isset($this->config['password'])
+        $credentials = isset($this->config['password']) && empty($this->config['key_path'])
             ? $this->config['password']
             : PublicKeyLoader::load(file_get_contents($this->config['key_path']));
 

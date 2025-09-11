@@ -78,9 +78,9 @@ return [
            |
            */
             'database'    => [
-                'name'     => env('REMOTE_DB_DATABASE'),
-                'username' => env('REMOTE_DB_USERNAME'),
-                'password' => env('REMOTE_DB_PASSWORD'),
+                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'),
+                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'),
+                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'),
                 'tables'   => [
                     // Example: only sync custom plugin tables
                     // 'custom_plugin_orders',

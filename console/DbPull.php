@@ -78,7 +78,6 @@ class DbPull extends Command
 
     public function handle(RemoteExecutor $executor): int
     {
-        $remoteConfig = $executor->config['database'];
         $localTempFile = tempnam(sys_get_temp_dir(), 'db_pull_');
         $remoteTempFile = '/tmp/' . basename($localTempFile);
 
@@ -87,6 +86,7 @@ class DbPull extends Command
             $executor->connect($this->argument('server'));
 
             $this->line('Creating remote database dump...');
+            $remoteConfig = $executor->config['database'];
             $remoteDbUser = escapeshellarg($remoteConfig['username']);
             $remoteDbName = escapeshellarg($remoteConfig['database']);
             $remoteTempFileArg = escapeshellarg($remoteTempFile);
@@ -115,6 +115,7 @@ class DbPull extends Command
                 $this->info('Database imported successfully.');
             }
         } catch (\Exception $e) {
+            $this->error("✘ An error occurred on server '{$this->argument('server')}':");
             $this->error($e->getMessage());
             return self::FAILURE;
         } finally {
