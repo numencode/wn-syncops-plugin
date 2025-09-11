@@ -26,7 +26,7 @@ class ProjectPull extends Command
 
             if ($executor->remoteIsClean()) {
                 $this->info('✔ No changes on the remote server.');
-                return Command::SUCCESS;
+                return self::SUCCESS;
             }
 
             $this->comment('Changes detected on remote. Committing and pushing...');
@@ -50,7 +50,7 @@ class ProjectPull extends Command
 
             if ($this->option('no-merge')) {
                 $this->info(PHP_EOL . '✔ Remote changes were pushed. Skipping local merge as requested.');
-                return Command::SUCCESS;
+                return self::SUCCESS;
             }
 
             $this->comment('Fetching and merging changes locally...');
@@ -62,14 +62,14 @@ class ProjectPull extends Command
         } catch (ProcessFailedException $e) { // Catches local command failures
             $this->error('✘ A local git command failed:');
             $this->error($e->getProcess()->getErrorOutput());
-            return Command::FAILURE;
+            return self::FAILURE;
         } catch (\Exception $e) { // Catches remote executor failures or other issues
             $this->error("✘ An error occurred on server '{$this->argument('server')}':");
             $this->error($e->getMessage());
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
         $this->info('✔ Changes were successfully pulled and merged into the local project.');
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 }

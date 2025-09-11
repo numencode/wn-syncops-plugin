@@ -1,5 +1,6 @@
 <?php namespace NumenCode\SyncOps\Classes;
 
+use phpseclib3\Net\SFTP;
 use phpseclib3\Net\SSH2;
 use phpseclib3\Crypt\PublicKeyLoader;
 
@@ -8,6 +9,11 @@ class RemoteExecutor
     protected SSH2 $ssh;
     protected string $server;
     public array $config;
+
+    public function getSftp(): SFTP
+    {
+        return new SFTP($this->config['host']);
+    }
 
     public function connect(string $server): bool
     {
@@ -20,11 +26,11 @@ class RemoteExecutor
 
         $this->ssh = new SSH2($this->config['host'], $this->config['port'] ?? 22);
 
-        $credentials = isset($this->config['password'])
+        $credentials = isset($this->config['password']) && empty($this->config['key_path'])
             ? $this->config['password']
             : PublicKeyLoader::load(file_get_contents($this->config['key_path']));
 
-        if (!$this->ssh->login($this->config['user'], $credentials)) {
+        if (!$this->ssh->login($this->config['username'], $credentials)) {
             throw new \RuntimeException("SSH login failed for server: {$server}.");
         }
 
@@ -114,11 +120,4 @@ class RemoteExecutor
 
         return $output;
     }
-
-//    use phpseclib3\Net\SFTP; // Add this at the top
-//
-//    public function getSftp(): SFTP
-//    {
-//        return new SFTP($this->config['host']);
-//    }
 }

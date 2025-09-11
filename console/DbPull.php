@@ -70,7 +70,6 @@ class DbPull extends Command
 {
     use RunsLocalCommands;
 
-    // 1. CONSISTENCY: Changed signature to match the 'syncops' namespace
     protected $signature = 'syncops:db-pull
         {server        : The name of the remote server}
         {--i|no-import : Do not import the database dump locally}';
@@ -79,60 +78,55 @@ class DbPull extends Command
 
     public function handle(RemoteExecutor $executor): int
     {
-        // 2. ROBUSTNESS: Use a temporary file to avoid name collisions and stale data
         $localTempFile = tempnam(sys_get_temp_dir(), 'db_pull_');
         $remoteTempFile = '/tmp/' . basename($localTempFile);
+
         try {
-            // --- REMOTE OPERATIONS ---
             $this->comment("Connecting to remote server '{$this->argument('server')}'...");
             $executor->connect($this->argument('server'));
-            // 3. CLARITY: Get remote config directly from the executor
-            $remoteConfig = $executor->config['database'];
-            $remotePath = $executor->config['path'];
+
             $this->line('Creating remote database dump...');
-            // 4. SECURITY: Use MYSQL_PWD to protect the remote database password
+            $remoteConfig = $executor->config['database'];
             $remoteDbUser = escapeshellarg($remoteConfig['username']);
             $remoteDbName = escapeshellarg($remoteConfig['database']);
             $remoteTempFileArg = escapeshellarg($remoteTempFile);
             $password = $remoteConfig['password'];
             $dumpCommand = "export MYSQL_PWD='{$password}'; mysqldump -u{$remoteDbUser} {$remoteDbName} > {$remoteTempFileArg}";
-            $executor->runAndGet([$dumpCommand]); // Using the consistent executor method
-            // 5. PERFORMANCE & RELIABILITY: Use SFTP over the existing SSH connection
+            $executor->runAndGet([$dumpCommand]);
+
             $this->line("Downloading database dump via SFTP...");
             $sftp = $executor->getSftp();
             if (!$sftp->get($remoteTempFile, $localTempFile)) {
                 throw new \RuntimeException("Failed to download dump file via SFTP.");
             }
             $this->info("Database dump successfully downloaded.");
+
             // --- LOCAL OPERATIONS ---
             if (!$this->option('no-import')) {
                 $this->line('Importing local database...');
                 $localConnection = config('database.default');
                 $localDbConfig = config('database.connections.' . $localConnection);
-                // 4. SECURITY: Use MYSQL_PWD to protect the local database password
                 $localDbUser = escapeshellarg($localDbConfig['username']);
                 $localDbName = escapeshellarg($localDbConfig['database']);
                 $localTempFileArg = escapeshellarg($localTempFile);
                 $password = $localDbConfig['password'];
                 $importCommand = "export MYSQL_PWD='{$password}'; mysql -u{$localDbUser} {$localDbName} < {$localTempFileArg}";
-                $this->runLocalCommand($importCommand); // Using the consistent local command runner
+                $this->runLocalCommand($importCommand);
                 $this->info('Database imported successfully.');
             }
         } catch (\Exception $e) {
+            $this->error("✘ An error occurred on server '{$this->argument('server')}':");
             $this->error($e->getMessage());
-
             return self::FAILURE;
         } finally {
-            // 6. ROBUSTNESS: The 'finally' block ensures cleanup happens even if an error occurs
             $this->comment('Cleaning up temporary files...');
-            if (isset($executor) && $executor->isConnected()) {
-                $executor->runAndGet(['rm', '-f', $remoteTempFile]);
-            }
+            $executor->runAndGet(['rm', '-f', $remoteTempFile]);
             if (File::exists($localTempFile)) {
                 File::delete($localTempFile);
             }
             $this->info('Cleanup complete.');
         }
+
         if ($this->option('no-import')) {
             $this->info(PHP_EOL . "✔ Database dump was successfully saved to: {$localTempFile}");
         } else {
