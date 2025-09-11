@@ -4,114 +4,89 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Remote Connection Name
+    | SyncOps Remote Server Connections
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default connection that will be used for SSH
-    | operations. This name should correspond to a connection name below
-    | in the server list. Each connection will be manually accessible.
-    |
-    */
-
-    'default' => 'production',
-
-    /*
-    |--------------------------------------------------------------------------
-    | Remote Server Connections
-    |--------------------------------------------------------------------------
-    |
-    | These are the servers that will be accessible via the SSH task runner
-    | facilities of Laravel. This feature radically simplifies executing
-    | tasks on your servers, such as deploying out these applications.
+    | Here you can define the remote servers that SyncOps will connect to for
+    | deployment, synchronization, and database commands. Each connection is
+    | identified by a unique name (e.g. "production", "staging") and contains
+    | the SSH and project details required for remote operations.
     |
     */
 
     'connections' => [
         'production' => [
-            'host'      => env('SYNCOPS_PRODUCTION_HOST', ''),
-            'port'      => env('SYNCOPS_PRODUCTION_PORT', 22),
-            'username'  => env('SYNCOPS_PRODUCTION_USERNAME', ''),
-            'key_path'  => env('SYNCOPS_PRODUCTION_KEY', ''), // private key file path
-//            'password'  => env('SYNCOPS_PRODUCTION_PASSWORD', ''),
-//            'key_pass'  => env('SYNCOPS_PRODUCTION_KEYPHRASE', ''), // optional
-//            'agent'     => env('SYNCOPS_PRODUCTION_AGENT', false), // optional
+            /*
+            |--------------------------------------------------------------------------
+            | SSH Credentials
+            |--------------------------------------------------------------------------
+            |
+            | Provide the SSH connection details for the server. You can use either
+            | password authentication or a private key. Values are read from your
+            | environment file for security.
+            |
+            */
+            'host'     => env('SYNCOPS_PRODUCTION_HOST', ''),     // Remote server host (IP or domain)
+            'port'     => env('SYNCOPS_PRODUCTION_PORT', 22),     // SSH port
+            'username' => env('SYNCOPS_PRODUCTION_USERNAME', ''), // SSH username
+            'password' => env('SYNCOPS_PRODUCTION_PASSWORD', ''), // Optional, not needed with private key
+            'key_path' => env('SYNCOPS_PRODUCTION_KEY', ''),      // Optional, path to private key file
 
-//            'key'       => env('SYNCOPS_PRODUCTION_KEY', ''),
-//            'keytext'   => env('SYNCOPS_PRODUCTION_KEYTEXT', ''),
-//            'keyphrase' => env('SYNCOPS_PRODUCTION_KEYPHRASE', ''),
-//            'agent'     => env('SYNCOPS_PRODUCTION_AGENT', ''),
-            'timeout'   => 600,
-
-//            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),
-            'branch'      => env('SYNCOPS_PRODUCTION_BRANCH', 'prod'),
+            /*
+            |--------------------------------------------------------------------------
+            | Project Settings
+            |--------------------------------------------------------------------------
+            |
+            | Define the project root path on the remote server and the branch names
+            | used for deployment (production branch) and main development tracking.
+            |
+            */
+            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),
+            'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'),
             'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),
 
-            // Extra data is required for the NumenCode\SyncOps plugin
-            'backup'    => [
-                'path'        => rtrim(env('REMOTE_PRODUCTION_PATH'), '/'),
-                'branch'      => env('REMOTE_PRODUCTION_BRANCH', 'prod'),
-                'branch_main' => env('REMOTE_PRODUCTION_BRANCH_MAIN', 'main'),
+            /*
+            |--------------------------------------------------------------------------
+            | Permissions (Optional)
+            |--------------------------------------------------------------------------
+            |
+            | These are only required if multiple users have different access rights
+            | on the server. SyncOps will adjust ownership and permissions where
+            | needed (e.g. for web server writable folders).
+            |
+            */
+            'permissions' => [
+                'root_user'   => env('REMOTE_PRODUCTION_ROOT_USER'),
+                'web_user'    => env('REMOTE_PRODUCTION_WEB_USER'),
+                'web_folders' => ['storage', 'themes'],
+            ],
 
-                // Permissions are required if there are multiple users with different access rights on the server
-                'permissions' => [
-                    'root_user'   => env('REMOTE_PRODUCTION_ROOT_USER'),
-                    'web_user'    => env('REMOTE_PRODUCTION_WEB_USER'),
-                    'web_folders' => 'storage,themes',
-                ],
-
-                // Remote database credentials are only required for the db:pull command
-                'database'    => [
-                    'name'     => env('REMOTE_DB_DATABASE'),
-                    'username' => env('REMOTE_DB_USERNAME'),
-                    'password' => env('REMOTE_DB_PASSWORD'),
-
-                    // Only tables specified in this array will be viable for the db:pull command.
-                    // If no tables are specified, all tables are taken into account.
-                    'tables'   => [
-                        // Custom
-//                        'custom_plugin_table_example',
-                        // NumenCode
-//                        'numencode_blogextension_files',
-//                        'numencode_blogextension_pictures',
-//                        'numencode_widgets_features_groups',
-//                        'numencode_widgets_features_items',
-//                        'numencode_widgets_highlights_groups',
-//                        'numencode_widgets_highlights_items',
-//                        'numencode_widgets_promotions_groups',
-//                        'numencode_widgets_promotions_items',
-                        // Winter
-//                        'winter_blog_categories',
-//                        'winter_blog_posts',
-//                        'winter_blog_posts_categories',
-//                        'winter_sitemap_definitions',
-//                        'winter_translate_attributes',
-//                        'winter_translate_indexes',
-//                        'winter_translate_locales',
-//                        'winter_translate_messages',
-                        // System
-                        'system_files',
-                        'system_mail_layouts',
-                        'system_mail_partials',
-                        'system_mail_templates',
-                    ],
+           /*
+           |--------------------------------------------------------------------------
+           | Remote Database (Optional)
+           |--------------------------------------------------------------------------
+           |
+           | Database credentials are only required when using commands like
+           | `syncops:db-pull`. This allows SyncOps to connect to the remote
+           | database, create a dump, and import it into your local database.
+           |
+           | By default, the dump will include all tables from the remote
+           | database. If you only want to pull specific tables (for example,
+           | excluding large log tables or sensitive user data), list them
+           | in the "tables" array below. Only those tables will be included
+           | in the dump and imported locally.
+           |
+           */
+            'database'    => [
+                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'),
+                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'),
+                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'),
+                'tables'   => [
+                    // Example: only sync custom plugin tables
+                    // 'custom_plugin_orders',
+                    // 'custom_plugin_customers',
                 ],
             ],
         ],
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Remote Server Groups
-    |--------------------------------------------------------------------------
-    |
-    | Here you may list connections under a single group name, which allows
-    | you to easily access all of the servers at once using a short name
-    | that is extremely easy to remember, such as "web" or "database".
-    |
-    */
-
-    'groups' => [
-        'web' => ['production'],
-    ],
-
 ];

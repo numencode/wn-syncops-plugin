@@ -21,7 +21,7 @@ class ProjectPush extends Command
 
             if (empty($status)) {
                 $this->info('✔ No changes to commit. Everything is up-to-date.' . PHP_EOL);
-                return Command::SUCCESS;
+                return self::SUCCESS;
             }
 
             $this->comment('Changes detected. Proceeding with commit and push...');
@@ -41,10 +41,10 @@ class ProjectPush extends Command
             $this->error('✘ An error occurred during the git process:');
             $this->error($e->getProcess()->getErrorOutput());
 
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
         $this->info('✔ Project changes were successfully pushed.' . PHP_EOL);
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 }

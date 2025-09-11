@@ -56,8 +56,7 @@ class DbPush extends Command
         }
 
         $this->info('✔ Database backup was successfully created.');
-
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 
     protected function resolveFolderName(?string $folderName): ?string
