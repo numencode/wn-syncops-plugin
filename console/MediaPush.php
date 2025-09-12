@@ -70,6 +70,7 @@ class MediaPush extends Command
         $bar->finish();
 
         $this->info(PHP_EOL . "✔ All media files have been successfully uploaded.");
+        return self::SUCCESS;
     }
 
     protected function resolveFolderName(?string $folderName): string

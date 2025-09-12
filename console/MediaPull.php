@@ -17,13 +17,13 @@ class MediaPull extends RemoteCommand
     {
         $cloud = $this->argument('cloud');
         $folder = $this->resolveFolderName($this->argument('folder'));
-        $useSudo = $this->option('sudo') ? 'sudo' : '';
+        $useSudo = $this->option('sudo') ? 'sudo ' : '';
 
         $this->comment("Connecting to remote server '{$this->argument('server')}'...");
         $executor = new RemoteExecutor($this->argument('server'));
 
         $this->line("Executing syncops:media-push on the remote server '{$this->argument('server')}'...");
-        $remoteCommands[] = ["{$useSudo} php artisan syncops:media-push {$cloud} {$folder}"];
+        $remoteCommands[] = ["{$useSudo}php artisan syncops:media-push {$cloud} {$folder}"];
         $result = $executor->ssh->runAndPrint($remoteCommands);
 
         if (!str_contains($result, 'files have been successfully uploaded')) {
