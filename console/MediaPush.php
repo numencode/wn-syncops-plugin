@@ -41,7 +41,7 @@ class MediaPush extends Command
             return self::SUCCESS;
         }
 
-        $this->line(PHP_EOL . "Uploading {$fileCount} media file(s) to cloud storage \"{$cloud}\"..." . PHP_EOL);
+        $this->line(PHP_EOL . "Uploading {$fileCount} media file(s) to cloud storage '{$cloud}'..." . PHP_EOL);
 
         $bar = $this->output->createProgressBar($fileCount);
 
@@ -69,7 +69,7 @@ class MediaPush extends Command
 
         $bar->finish();
 
-        $this->info(PHP_EOL . '✔ All media files have been successfully uploaded.');
+        $this->info(PHP_EOL . "✔ All media files have been successfully uploaded.");
     }
 
     protected function resolveFolderName(?string $folderName): string
@@ -79,10 +79,10 @@ class MediaPush extends Command
 
     protected function dryRun(array $files)
     {
-        $this->info('Dry run: The following files (' . count($files) . ') would be uploaded:');
+        $this->info("Dry run: The following files (" . count($files) . ") would be uploaded:");
 
         foreach ($files as $file) {
-            $this->line("- " . $file);
+            $this->line("- {$file}");
         }
     }
 }

@@ -57,7 +57,7 @@ by name. Simply populate the credentials in the connections array via your envir
 #### Configuration
 
 Before using this command, ensure your remote servers are properly configured in your Laravel application's
-`config/remote.php` file. The command will use the SSH connection details from this configuration to connect
+`config/syncops.php` file. The command will use the SSH connection details from this configuration to connect
 to the remote host.
 
 For example, a typical remote configuration for a production server might look like this:
@@ -139,8 +139,8 @@ cloud storage for media files, database synchronization and more.
 
 | Command                                   | Description                                                                                                                  |
 |:------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------|
-| [syncops:db-push](#db-push)               | Create a compressed database dump and optionally upload it to cloud storage.                                                 |
-| [syncops:db-pull](#db-pull)               | TBD Transfer changes from the production database to the local/dev database                                                  |
+| [syncops:db-push](#db-push)               | Create a database dump (compressed by default) and optionally upload it to cloud storage.                                    |
+| [syncops:db-pull](#db-pull)               | Creates a database dump on a remote server, downloads it, and imports it locally.                                            |
 | [syncops:media-push](#media-push)         | Backs up all media files to the specified cloud storage.                                                                     |
 | [syncops:media-pull](#media-pull)         | TBD Transfer all the media files from production to the local/dev environment via the cloud storage                          |
 | [project:backup](#project-backup)         | TBD Create a compressed archive of all the project files and upload it to the cloud storage                                  |
@@ -150,49 +150,6 @@ cloud storage for media files, database synchronization and more.
 
 ---
 
-<a name="db-pull"></a>
-### Command: `syncops:db-pull`
-
-The command connects to a remote server with SSH, creates a database dump file, transfers it to the current working
-environment (e.g. local/dev) and imports it into its database. The tables that are updated with the command are
-specified in the list in the configuration file `/config/remote.php`, under the `backup.database.tables` section.
-If no table is defined in this list, all the tables are taken into account and are updated.
-
-The command is intended to be executed on a local/dev environment in order to update the local database with the
-data from the production/staging database. Still, the command can also be executed on any other environment,
-assuming that the appropriate credentials are set.
-
-#### Usage in CLI
-
-```bash
-php artisan syncops:db-pull production
-```
-- where `production` is the remote server name (defined in `/config/remote.php`)
-
-The command supports one optional argument:
-```bash
-php artisan syncops:db-pull production --no-import
-```
-- `--no-import` or `-i` prevents importing data automatically and leaves the database dump file in the project's root folder
-
-
-
-
-
-
------
------
------
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -200,28 +157,124 @@ php artisan syncops:db-pull production --no-import
 
 # DONE *****************************************************************************************
 
+<a name="db-pull"></a>
+### Command: `syncops:db-pull`
+
+The `syncops:db-pull` command automates the process of creating a database dump on a **remote server**,
+downloading it to your local project, and (by default) importing it into your local database.
+
+This command is especially useful for **synchronizing development environments** with production or staging data.
+
+This command performs the following actions:
+
+1. Connects to the specified remote server.
+2. Creates a database dump on the remote server.
+    - By default, the dump is compressed as a `.sql.gz` file.
+    - With the `--no-gzip` option, the dump is saved as a plain `.sql` file.
+    - Optionally, you can define specific tables to pull by configuring them in `config/syncops.php`
+      under `database.tables`. Only the tables listed there will be included in the dump.
+3. Downloads the dump via SFTP to your local project folder.
+4. **Optionally** unzips the dump locally (if compression was used).
+5. **Optionally** imports the dump into your configured local database.
+6. Cleans up temporary dump files both remotely and locally.
+
+#### Configuration
+
+Before using this command, ensure your remote servers are properly configured in your
+Laravel application's `config/syncops.php` file. The command will use the SSH connection
+details from this configuration to connect to the remote host.
+
+Example `config/syncops.php` snippet for database tables:
+
+```php
+'database' => [
+    'username' => 'dbuser',
+    'password' => 'dbpass',
+    'database' => 'my_database',
+    'tables'   => [
+        'users',
+        'posts',
+        'comments',
+    ],
+],
+```
+
+If the `tables` array is provided, only these tables will be included in the dump; otherwise, the entire
+database will be dumped.
+
+#### Usage in CLI
+
+```bash
+php artisan syncops:db-pull my-server
+````
+
+#### Options & arguments
+
+* **`server`**: The name of the remote server (as configured in your `syncops.php` config file).
+
+  ```bash
+  php artisan syncops:db-pull production
+  ```
+
+* **`--timestamp`**: Date format used for naming the dump file (default: `Y-m-d_H-i-s`).
+
+  ```bash
+  php artisan syncops:db-pull production --timestamp=d-m-Y
+  ```
+
+* **`--no-gzip` (`-g`)**: Skips gzip compression and transfers the dump as a plain `.sql`.
+
+  ```bash
+  php artisan syncops:db-pull production --no-gzip
+  ```
+
+* **`--no-import` (`-i`)**: Prevents automatic import into the local database after download.
+  Useful if you only need the dump file.
+
+  ```bash
+  php artisan syncops:db-pull production --no-import
+  ```
+
+#### Note
+
+This command currently **only supports MySQL and MariaDB** databases.
+Other database types supported by Laravel (PostgreSQL, SQLite, SQL Server, Redis, etc.) are not compatible.
+
+---
+
 <a name="db-push"></a>
 ### Command: `syncops:db-push`
 
-The `syncops:db-push` command automates the process of creating a compressed SQL dump of your
-project’s default database and, if specified, uploading it to a cloud storage provider.
+The `syncops:db-push` command automates the process of creating an optionally compressed SQL dump of your
+project’s default MySQL/MariaDB database and, if specified, uploading it to a cloud storage provider.
 
 This command is especially useful for **scheduled backups**, ensuring your production database
 is safely stored locally and in the cloud.
 
 This command performs the following actions:
 
-1. Creates a `.sql.gz` dump of the configured default database.
+1. Creates a database dump of the configured default database.
+   - By default, the dump is compressed as a `.sql.gz` file.
+   - With the `--no-gzip` option, the dump is saved as a plain `.sql` file.
 2. Names the file using a timestamp (format configurable via option).
 3. **Optionally** uploads the file to a cloud storage provider.
 4. **Optionally** deletes the local file after upload, unless instructed to keep it.
 5. **Optionally** moves the file to a local folder if `--folder` is specified.
 
+#### Configuration
+
+Before using this command, ensure your Laravel application is properly configured:
+
+* **Database configuration** (`config/database.php`) – the command uses the `default`
+  connection to determine the database name, username, and password.
+* **Filesystem configuration** (`config/filesystems.php`) – if uploading to cloud storage,
+  the disk name specified as the `cloud` argument must exist.
+
 #### Usage in CLI
 
 ```bash
 php artisan syncops:db-push
-```
+````
 
 #### Options & arguments
 
@@ -243,6 +296,12 @@ php artisan syncops:db-push
   php artisan syncops:db-push dropbox --timestamp=d-m-Y
   ```
 
+* **`--no-gzip` (`-g`)**: Skips gzip compression and saves the dump file as a plain `.sql`.
+
+  ```bash
+  php artisan syncops:db-push dropbox --no-gzip
+  ```
+
 * **`--no-delete` (`-d`)**: Prevents deletion of the local dump file after uploading.
 
   ```bash
@@ -260,6 +319,11 @@ $schedule->command('syncops:db-push dropbox --folder=database')->dailyAt('02:00'
 
 This example schedules a daily backup of your database to the `dropbox` disk every day at 2:00 AM.
 
+#### Note
+
+This command currently **only supports MySQL and MariaDB** databases.
+Other database types supported by Laravel (PostgreSQL, SQLite, SQL Server, Redis, etc.) are not compatible.
+
 ---
 
 <a name="media-push"></a>
@@ -273,6 +337,23 @@ automated daily backups to your chosen cloud storage, ensuring your media assets
 
 By default, the command excludes `.gitignore` files and any files located within `/thumb/` directories
 (which typically contain generated image thumbnails) to optimize upload times and storage space.
+
+#### Configuration
+
+Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
+`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
+
+```php
+// config/filesystems.php
+
+'disks' => [
+    // ... other disks
+
+    'dropbox' => [
+        'driver' => 'dropbox',
+    ],
+],
+```
 
 #### Usage in CLI
 
@@ -312,23 +393,6 @@ The `syncops:media-push` command supports the following options for more control
   ```bash
   php artisan syncops:media-push dropbox --dry-run
   ```
-
-#### Configuration
-
-Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
-`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
-
-```php
-// config/filesystems.php
-
-'disks' => [
-    // ... other disks
-
-    'dropbox' => [
-        'driver' => 'dropbox',
-    ],
-],
-```
 
 #### Usage in Scheduler
 
@@ -370,6 +434,12 @@ php artisan syncops:project-pull production
 
 In this example, `production` is the name of your configured remote server.
 
+#### Configuration
+
+Before using this command, ensure your remote servers are properly configured in your
+Laravel application's `config/syncops.php` file. The command will use the SSH connection
+details from this configuration to connect to the remote host.
+
 #### Options & arguments
 
 The `syncops:project-pull` command supports the following options for more control over the synchronization process:
@@ -396,12 +466,6 @@ The `syncops:project-pull` command supports the following options for more contr
   php artisan syncops:project-pull production --message="Updated content and layout"
   ```
 
-#### Configuration
-
-Before using this command, ensure your remote servers are properly configured in your Laravel application's
-`config/remote.php` file. The command will use the SSH connection details from this configuration to connect
-to the remote host.
-
 ---
 
 <a name="project-push"></a>
@@ -420,6 +484,11 @@ This command performs the following actions:
 
 This ensures that local adjustments are always tracked and versioned,
 keeping your project repository in sync with your environment.
+
+#### Configuration
+
+This command runs entirely **locally** and does not require a remote server configuration.
+It uses your current Git settings (branch, remote, and authentication) to push changes.
 
 #### Usage in CLI
 
@@ -442,10 +511,6 @@ The `syncops:project-push` command supports the following option:
   php artisan syncops:project-commit --message="Custom commit message"
   ```
 
-#### Configuration
-
-This command runs entirely **locally** and does not require a remote server configuration.
-It uses your current Git settings (branch, remote, and authentication) to push changes.
 
 ---
 
@@ -480,7 +545,7 @@ media files from the production/staging environment.
 ```bash
 php artisan media:pull production cloudName
 ```
-- where `production` is the remote server name (defined in `/config/remote.php`)
+- where `production` is the remote server name (defined in `/config/syncops.php`)
 - where `cloudName` is a cloud storage where the files are uploaded (defined in `/config/filesystems.php`)
 
 The command supports some optional arguments:
@@ -539,7 +604,7 @@ and the migrations can be run with the parameter `-m`.
 ```bash
 php artisan project:deploy production
 ```
-- where `production` is the remote server name (defined in `/config/remote.php`)
+- where `production` is the remote server name (defined in `/config/syncops.php`)
 
 The command supports some optional arguments:
 ```bash
