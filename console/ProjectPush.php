@@ -16,35 +16,35 @@ class ProjectPush extends Command
     public function handle(): int
     {
         try {
-            $this->comment('Checking for local changes...');
+            $this->comment("Checking for local changes...");
             $status = $this->runLocalCommand('git status --porcelain');
 
             if (empty($status)) {
-                $this->info('✔ No changes to commit. Everything is up-to-date.' . PHP_EOL);
+                $this->info("✔ No changes to commit. Everything is up-to-date." . PHP_EOL);
                 return self::SUCCESS;
             }
 
-            $this->comment('Changes detected. Proceeding with commit and push...');
+            $this->comment("Changes detected. Proceeding with commit and push...");
             $commitMessage = $this->option('message');
 
-            $this->line('Adding all changes...');
+            $this->line("Adding all changes...");
             $this->runLocalCommand('git add --all');
 
             $this->line("Committing with message: '{$commitMessage}'");
             $this->runLocalCommand("git commit -m '{$commitMessage}'");
 
-            $this->line('Pushing changes to the remote repository...');
+            $this->line("Pushing changes to the remote repository...");
             $pushOutput = $this->runLocalCommand('git push');
             $this->info($pushOutput);
 
         } catch (ProcessFailedException $e) {
-            $this->error('✘ An error occurred during the git process:');
+            $this->error("✘ An error occurred during the git process:");
             $this->error($e->getProcess()->getErrorOutput());
 
             return self::FAILURE;
         }
 
-        $this->info('✔ Project changes were successfully pushed.' . PHP_EOL);
+        $this->info("✔ Project changes were successfully pushed." . PHP_EOL);
         return self::SUCCESS;
     }
 }

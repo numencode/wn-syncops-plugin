@@ -17,7 +17,7 @@ class MediaPullCommand extends RemoteCommand
     public function handle()
     {
         if (!$this->sshConnect()) {
-            return $this->error('An error occurred while connecting with SSH.');
+            return $this->error("An error occurred while connecting with SSH.");
         }
 
         if ($this->option('sudo')) {
@@ -28,12 +28,12 @@ class MediaPullCommand extends RemoteCommand
         $folder = $this->resolveFolderName($this->argument('folder'));
 
         $this->info(PHP_EOL . "Now connected to the {$this->argument('server')} server." . PHP_EOL);
-        $this->line('Executing media:backup command...');
+        $this->line("Executing media:backup command...");
 
         $result = $this->sshRunAndPrint([$this->sudo . 'php artisan media:backup ' . $cloud . ' ' . $folder]);
         dd($result);
         if (!str_contains($result, 'files successfully uploaded')) {
-            $this->error(PHP_EOL . 'An error occurred while uploading files to the cloud storage.');
+            $this->error(PHP_EOL . "An error occurred while uploading files to the cloud storage.");
 
             return false;
         }
@@ -45,9 +45,9 @@ class MediaPullCommand extends RemoteCommand
             return starts_with($file, $folder);
         });
 
-        $this->info(PHP_EOL . 'Switched back to local environment.' . PHP_EOL);
+        $this->info(PHP_EOL . "Switched back to local environment." . PHP_EOL);
 
-        $this->line('Downloading ' . count($files) . ' files from the cloud storage...' . PHP_EOL);
+        $this->line("Downloading " . count($files) . " files from the cloud storage..." . PHP_EOL);
 
         $bar = $this->output->createProgressBar(count($files));
 
