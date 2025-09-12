@@ -32,7 +32,7 @@ class MediaPush extends Command
         $fileCount = count($files);
 
         if ($fileCount === 0) {
-            $this->warn('No media files found to upload.');
+            $this->warn("No media files found to upload.");
             return self::SUCCESS;
         }
 
@@ -70,6 +70,7 @@ class MediaPush extends Command
         $bar->finish();
 
         $this->info(PHP_EOL . "✔ All media files have been successfully uploaded.");
+        return self::SUCCESS;
     }
 
     protected function resolveFolderName(?string $folderName): string
