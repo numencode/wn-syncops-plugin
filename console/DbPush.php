@@ -13,9 +13,10 @@ class DbPush extends Command
         {cloud?          : Cloud storage where the dump file is uploaded}
         {--folder=       : Folder where the dump file is stored (local and/or cloud)}
         {--timestamp=    : Date format used for naming the dump file (default: Y-m-d_H-i-s)}
+        {--g|no-gzip     : Skip gzip compression when creating the database dump}
         {--d|no-delete   : Do not delete the dump file after uploading to the cloud}';
 
-    protected $description = 'Create a compressed database dump and optionally upload it to cloud storage.';
+    protected $description = 'Create a database dump (compressed by default) and optionally upload it to cloud storage.';
 
     protected string $dumpFilename;
 
@@ -23,39 +24,43 @@ class DbPush extends Command
     {
         $folder = $this->resolveFolderName($this->option('folder'));
         $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
+        $useGzip = !$this->option('no-gzip');
 
-        $this->dumpFilename = now()->format($timestamp) . '.sql.gz';
+        $this->dumpFilename = now()->format($timestamp) . ($useGzip ? '.sql.gz' : '.sql');
 
         $connection = config('database.default');
         $dbUser = config('database.connections.' . $connection . '.username');
         $dbPass = config('database.connections.' . $connection . '.password');
         $dbName = config('database.connections.' . $connection . '.database');
 
-        $this->line(PHP_EOL . 'Creating database dump file...');
-        $this->runLocalCommand("mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFilename}");
-        $this->info('Database dump file successfully created.' . PHP_EOL);
+        $this->line(PHP_EOL . "Creating database dump file...");
+        $dumpCommand = $useGzip
+            ? "mysqldump -u{$dbUser} -p{$dbPass} {$dbName} | gzip > {$this->dumpFilename}"
+            : "mysqldump -u{$dbUser} -p{$dbPass} {$dbName} > {$this->dumpFilename}";
+        $this->runLocalCommand($dumpCommand);
+        $this->info("Database dump file successfully created: {$this->dumpFilename}" . PHP_EOL);
 
         if ($this->argument('cloud')) {
             $cloudStorage = Storage::disk($this->argument('cloud'));
 
-            $this->line('Uploading database dump file to cloud storage...');
+            $this->line("Uploading database dump file to cloud storage...");
             $localFileStream = fopen($this->dumpFilename, 'r');
             $cloudStorage->put($folder . $this->dumpFilename, $localFileStream);
             if (is_resource($localFileStream)) {
                 fclose($localFileStream);
             }
-            $this->info('Database dump file successfully uploaded.' . PHP_EOL);
+            $this->info("Database dump file successfully uploaded." . PHP_EOL);
 
             if (!$this->option('no-delete')) {
-                $this->line('Deleting the local dump file...');
+                $this->line("Deleting the local dump file...");
                 File::delete($this->dumpFilename);
-                $this->info('Local dump file successfully deleted.' . PHP_EOL);
+                $this->info("Local dump file successfully deleted." . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
             }
         }
 
-        $this->info('✔ Database backup was successfully created.');
+        $this->info("✔ Database backup was successfully created.");
         return self::SUCCESS;
     }
 

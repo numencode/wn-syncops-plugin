@@ -25,21 +25,21 @@ class ProjectBackupCommand extends Command
 
         $this->archiveFile = now()->format($timestamp) . '.tar.gz';
 
-        $this->line(PHP_EOL . 'Creating project archive...');
+        $this->line(PHP_EOL . "Creating project archive...");
         shell_exec("tar -pczf {$this->archiveFile} {$exclude} .");
-        $this->info('Project archive successfully created.' . PHP_EOL);
+        $this->info("Project archive successfully created." . PHP_EOL);
 
         if ($this->argument('cloudName')) {
             $cloudStorage = Storage::disk($this->argument('cloudName'));
 
-            $this->line('Uploading project archive to the cloud storage...');
+            $this->line("Uploading project archive to the cloud storage...");
             $cloudStorage->put($folder . $this->archiveFile, file_get_contents($this->archiveFile));
-            $this->info('Project archive successfully uploaded.' . PHP_EOL);
+            $this->info("Project archive successfully uploaded." . PHP_EOL);
 
             if (!$this->option('no-delete')) {
-                $this->line('Deleting the project archive...');
+                $this->line("Deleting the project archive...");
                 shell_exec("rm -f {$this->archiveFile}");
-                $this->info('Project archive successfully deleted.' . PHP_EOL);
+                $this->info("Project archive successfully deleted." . PHP_EOL);
             } elseif ($folder) {
                 $this->moveFile($folder);
             }

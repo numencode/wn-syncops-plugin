@@ -15,21 +15,21 @@ class ProjectPull extends Command
         {--p|pull     : Execute "git pull" on the remote before pushing changes}
         {--message=   : Commit message for server changes (default: "Server changes")}';
 
-    protected $description = 'Commits untracked changes on the remote server, pushes them to the origin,
-                              and optionally merges them into the local branch.';
+    protected $description = 'Commits untracked changes on the remote server,
+        pushes them to the origin, and optionally merges them into the local branch.';
 
-    public function handle(RemoteExecutor $executor): int
+    public function handle(): int
     {
         try {
             $this->comment("Connecting to remote server '{$this->argument('server')}'...");
-            $executor->connect($this->argument('server'));
+            $executor = new RemoteExecutor($this->argument('server'));
 
-            if ($executor->remoteIsClean()) {
-                $this->info('✔ No changes on the remote server.');
+            if ($executor->ssh->remoteIsClean()) {
+                $this->info("✔ No changes on the remote server.");
                 return self::SUCCESS;
             }
 
-            $this->comment('Changes detected on remote. Committing and pushing...');
+            $this->comment("Changes detected on remote. Committing and pushing...");
             $commitMessage = $this->option('message') ?: 'Server changes';
 
             $remoteCommands = [
@@ -38,29 +38,29 @@ class ProjectPull extends Command
             ];
 
             if ($this->option('pull')) {
-                $this->line('Pulling new changes on the remote...');
+                $this->line("Pulling new changes on the remote...");
                 $remoteCommands[] = ['git', 'pull'];
             }
 
-            $currentRemoteBranch = $executor->runAndGet(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+            $currentRemoteBranch = $executor->ssh->runAndGet(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
             $this->line("Pushing remote changes from '{$currentRemoteBranch}' to origin...");
             $remoteCommands[] = ['git', 'push', 'origin', $currentRemoteBranch];
 
-            $executor->runAndPrint($remoteCommands);
+            $executor->ssh->runAndPrint($remoteCommands);
 
             if ($this->option('no-merge')) {
-                $this->info(PHP_EOL . '✔ Remote changes were pushed. Skipping local merge as requested.');
+                $this->info(PHP_EOL . "✔ Remote changes were pushed. Skipping local merge as requested.");
                 return self::SUCCESS;
             }
 
-            $this->comment('Fetching and merging changes locally...');
+            $this->comment("Fetching and merging changes locally...");
             $this->runLocalCommand('git fetch origin');
 
             $mergeBranch = $executor->config['branch_prod'] ?? $currentRemoteBranch;
             $this->info($this->runLocalCommand('git merge origin/' . $mergeBranch));
 
         } catch (ProcessFailedException $e) { // Catches local command failures
-            $this->error('✘ A local git command failed:');
+            $this->error("✘ A local git command failed:");
             $this->error($e->getProcess()->getErrorOutput());
             return self::FAILURE;
         } catch (\Exception $e) { // Catches remote executor failures or other issues
@@ -69,7 +69,7 @@ class ProjectPull extends Command
             return self::FAILURE;
         }
 
-        $this->info('✔ Changes were successfully pulled and merged into the local project.');
+        $this->info("✔ Changes were successfully pulled and merged into the local project.");
         return self::SUCCESS;
     }
 }

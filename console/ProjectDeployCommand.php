@@ -1,7 +1,7 @@
 <?php namespace NumenCode\SyncOps\Console;
 
 use Illuminate\Console\Command;
-use NumenCode\SyncOps\Classes\RemoteExecutor;
+use NumenCode\SyncOps\Classes\RemoteExecutorOld;
 
 class ProjectDeployCommand extends Command
 {
@@ -15,9 +15,9 @@ class ProjectDeployCommand extends Command
     protected $description = 'Deploys the project on the remote server';
 
     protected $sudo;
-    protected RemoteExecutor $executor;
+    protected RemoteExecutorOld $executor;
 
-    public function handle(RemoteExecutor $executor)
+    public function handle(RemoteExecutorOld $executor)
     {
         $this->executor = $executor;
 
@@ -35,9 +35,9 @@ class ProjectDeployCommand extends Command
             $this->handleOwnership();
 
             if ($success) {
-                $this->info('✔ Project was successfully deployed.');
+                $this->info("✔ Project was successfully deployed.");
             } else {
-                $this->error('⚠ Project deployment FAILED. Check error logs to see what went wrong.');
+                $this->error("⚠ Project deployment FAILED. Check error logs to see what went wrong.");
             }
         } catch (\Throwable $e) {
             $this->executor->runAndPrint(['php artisan up']);
@@ -49,7 +49,7 @@ class ProjectDeployCommand extends Command
     protected function fastDeploy()
     {
         if (!empty($this->executor->config['permissions']['root_user'])) {
-            $this->line('Handling file ownership.');
+            $this->line("Handling file ownership.");
             $this->executor->runAndPrint([$this->sudo . 'chown ' . $this->executor->config['permissions']['root_user'] . ' -R .']);
             $this->line('');
         }
@@ -63,19 +63,19 @@ class ProjectDeployCommand extends Command
 
     protected function deploy()
     {
-        $this->line('Putting the application into maintenance mode:');
+        $this->line("Putting the application into maintenance mode:");
         $this->executor->runAndPrint([$this->sudo . 'php artisan down']);
         sleep(1);
 
-        $this->line('Flushing the application cache:');
+        $this->line("Flushing the application cache:");
         $this->executor->runAndPrint($this->clearCommands());
 
         $success = $this->fastDeploy();
 
-        $this->line('Rebuilding the application cache:');
+        $this->line("Rebuilding the application cache:");
         $this->executor->runAndPrint($this->clearCommands());
 
-        $this->line('Bringing the application out of the maintenance mode:');
+        $this->line("Bringing the application out of the maintenance mode:");
         $this->executor->runAndPrint([$this->sudo . 'php artisan up']);
 
         return $success;
@@ -83,12 +83,12 @@ class ProjectDeployCommand extends Command
 
     public function pullDeploy()
     {
-        $this->line('Deploying the project (pull mode):');
+        $this->line("Deploying the project (pull mode):");
 
         $result = $this->executor->runAndPrint(['git pull']);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error('⚠ Conflicts detected. Reverting changes...');
+            $this->error("⚠ Conflicts detected. Reverting changes...");
             $this->executor->runAndPrint(['git reset --hard']);
 
             return false;
@@ -101,7 +101,7 @@ class ProjectDeployCommand extends Command
 
     public function mergeDeploy()
     {
-        $this->line('Deploying the project (merge mode):');
+        $this->line("Deploying the project (merge mode):");
 
         $result = $this->executor->runAndPrint([
             'git fetch',
@@ -109,7 +109,7 @@ class ProjectDeployCommand extends Command
         ]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error('⚠ Conflicts detected. Reverting changes...');
+            $this->error("⚠ Conflicts detected. Reverting changes...");
             $this->executor->runAndPrint(['git reset --hard']);
 
             return false;
@@ -145,7 +145,7 @@ class ProjectDeployCommand extends Command
 
         $folders = explode(',', $this->executor->config['permissions']['web_folders']);
 
-        $this->line('Handling file ownership.');
+        $this->line("Handling file ownership.");
 
         foreach ($folders as $folder) {
             $this->executor->runAndPrint([$this->sudo . 'chown ' . $this->executor->config['permissions']['web_user'] . ' ' . $folder . ' -R']);
