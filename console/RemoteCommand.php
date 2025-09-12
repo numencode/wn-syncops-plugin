@@ -24,7 +24,7 @@ class RemoteCommand extends Command
     protected function sshRun(array $commands, $print = false, $path = null)
     {
         if (!isset($this->backup['path'])) {
-            $this->error('Project path for [' . $this->argument('server') . '] is undefined!');
+            $this->error("Project path for [" . $this->argument('server') . '] is undefined!');
 
             return false;
         }
@@ -58,8 +58,8 @@ class RemoteCommand extends Command
 
         if ($deploy) {
             $this->sshRunAndPrint(['git status']);
-            $this->error('Remote changes detected. Aborting deployment process.');
-            $this->info('Please run a command: php artisan project:pull ' . $this->argument('server'));
+            $this->error("Remote changes detected. Aborting deployment process.");
+            $this->info("Please run a command: php artisan project:pull " . $this->argument('server'));
         }
 
         return false;

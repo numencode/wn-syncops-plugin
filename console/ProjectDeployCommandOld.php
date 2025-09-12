@@ -16,7 +16,7 @@ class ProjectDeployCommandOld extends RemoteCommand
     public function handle()
     {
         if (!$this->sshConnect()) {
-            return $this->error('An error occurred while connecting with SSH.');
+            return $this->error("An error occurred while connecting with SSH.");
         }
 
         if (!$this->checkForChanges(true)) {
@@ -34,9 +34,9 @@ class ProjectDeployCommandOld extends RemoteCommand
         $this->handleOwnership();
 
         if (!$success) {
-            $this->error('Project deployment FAILED. Check error logs to see what went wrong.' . PHP_EOL);
+            $this->error("Project deployment FAILED. Check error logs to see what went wrong." . PHP_EOL);
         } else {
-            $this->alert('Project was successfully deployed.');
+            $this->alert("Project was successfully deployed.");
         }
     }
 
@@ -83,7 +83,7 @@ class ProjectDeployCommandOld extends RemoteCommand
         $result = $this->sshRunAndPrint(['git pull']);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error('Conflicts detected. Reverting changes...');
+            $this->error("Conflicts detected. Reverting changes...");
             $this->sshRunAndPrint(['git reset --hard']);
 
             return false;
@@ -104,7 +104,7 @@ class ProjectDeployCommandOld extends RemoteCommand
         ]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error('Conflicts detected. Reverting...');
+            $this->error("Conflicts detected. Reverting...");
             $this->sshRunAndPrint(['git reset --hard']);
 
             return false;
