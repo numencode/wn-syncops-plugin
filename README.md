@@ -89,7 +89,7 @@ Beside the SSH credentials in the configuration file, you will notice some addit
 `backup` array of data. Here is an explanation for every single attribute from it:
 
 | Data                    | Description                                                                    |
-| :---------------------- |:-------------------------------------------------------------------------------|
+|:------------------------|:-------------------------------------------------------------------------------|
 | path                    | Path to the project on the remote server, e.g. `/var/www/yourdomain.com`       |
 | branch                  | Name of the branch checked-out on the remote server, `prod` by default         |
 | branch_main             | Name of the branch checked-out on the local/dev environment, `main` by default |
@@ -99,27 +99,24 @@ Beside the SSH credentials in the configuration file, you will notice some addit
 | database.name           | Database name on the remote server                                             |
 | database.username       | Database username on the remote server                                         |
 | database.password       | Database password on the remote server                                         |
-| database.tables*        | Tables viable for the `db:pull` command                                        |
+| database.tables         | Tables viable for the `db:pull` command                                        |
 
-*you can specify, which tables in the database you would like to sync with command `db:pull`. If no table names are
-listed in this array, all the tables will be synchronized between environments. Since some settings stored in the
-database are usually not identical across different environments, it makes sense to specify which tables should
-be synchronized when `db:pull` command transfers the data from one database to the other.
 
 ### Environment variables example
 
 This is an example for the environment variables in the local/dev `.env` file:
 
-    REMOTE_PRODUCTION_HOST=123.456.789.10
-    REMOTE_PRODUCTION_USERNAME=pi
-    REMOTE_PRODUCTION_KEY=~/.ssh/id_rsa
-    REMOTE_PRODUCTION_PATH=/var/www/domain.com
-    REMOTE_PRODUCTION_BRANCH_MAIN=master
-    REMOTE_PRODUCTION_ROOT_USER=pi:pi
-    REMOTE_PRODUCTION_WEB_USER=www-data:www-data
-    REMOTE_DB_DATABASE=project
-    REMOTE_DB_USERNAME=user
-    REMOTE_DB_PASSWORD=pass
+    SYNCOPS_PRODUCTION_HOST=123.456.789.10
+    SYNCOPS_PRODUCTION_USERNAME=numencode
+    SYNCOPS_PRODUCTION_KEY=C:\Users\numencode\.ssh\id_rsa
+    SYNCOPS_PRODUCTION_PATH=/home/numencode.com/public_html
+    SYNCOPS_PRODUCTION_BRANCH_PROD=prod
+    SYNCOPS_PRODUCTION_BRANCH_MAIN=main
+    SYNCOPS_PRODUCTION_ROOT_USER=root:root
+    SYNCOPS_PRODUCTION_WEB_USER=www-data:www-data
+    SYNCOPS_PRODUCTION_DB_DATABASE=numencode_winter
+    SYNCOPS_PRODUCTION_DB_USERNAME=numencode_winter
+    SYNCOPS_PRODUCTION_DB_PASSWORD="num4nc0d3p455"
 
 Normally, the production `.env` file does not even need these entries.
 
@@ -149,6 +146,14 @@ cloud storage for media files, database synchronization and more.
 | [syncops:project-push](#project-push)     | Adds and commits project changes locally and pushes them to the remote repository.                                           |
 
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -620,7 +625,7 @@ php artisan project:deploy production --fast --composer --migrate --sudo
 
 ---
 
-## Recommended Scheduler settings
+## TBD -------------- Recommended Scheduler settings
 
 Here are the recommended entries for the Scheduler:
 - create a complete backup every monday at 1 am
@@ -635,32 +640,17 @@ $schedule->command('media:backup dropbox')->daily()->at('03:00');
 $schedule->command('project:commit')->daily()->at('04:00');
 ```
 
+---
+
 ## Dropbox setup
 
-Dropbox is very easy to configure and upon the registration on https://www.dropbox.com/register it offers free 2GB
-of cloud storage space. In order to setup the Dropbox, complete the registration and continue with the following steps.
+Dropbox is very easy to configure and upon the registration on https://www.dropbox.com/register
+it offers free 2GB of cloud storage space.
+In order to setup the Dropbox, complete the registration, add the
+[NumenCode Dropbox Adapter Plugin](https://packagist.org/packages/numencode/wn-dropboxadapter-plugin)
+and follow the [Installation steps here](https://github.com/numencode/wn-dropboxadapter-plugin/blob/main/README.md).
 
-1. Require the Dropbox adapter package with Composer
-```bash
-composer require renatio/dropboxadapter-plugin
-```
-
-2. Login to your Dropbox account and configure API service on https://www.dropbox.com/developers/apps
-
-3. Once you have the authorization token, edit `/config/filesystems.php` and add the adapter
-```bash
-'dropbox' => [
-    'driver'             => 'dropbox',
-    'authorizationToken' => env('DROPBOX_AUTH_TOKEN', ''),
-],
-```
-
-4. Add your authorization token to the `.env` file
-```bash
-DROPBOX_AUTH_TOKEN=yourTokenHere
-```
-
-5. You're all set, you can start using Dropbox as your cloud storage.
+---
 
 # Changelog
 
