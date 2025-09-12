@@ -32,7 +32,7 @@ class MediaPush extends Command
         $fileCount = count($files);
 
         if ($fileCount === 0) {
-            $this->warn('No media files found to upload.');
+            $this->warn("No media files found to upload.");
             return self::SUCCESS;
         }
 
