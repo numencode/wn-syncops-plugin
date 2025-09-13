@@ -136,10 +136,10 @@ cloud storage for media files, database synchronization and more.
 
 | Command                                   | Description                                                                                                                  |
 |:------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------|
-| [syncops:db-push](#db-push)               | Create a database dump (compressed by default) and optionally upload it to cloud storage.                                    |
 | [syncops:db-pull](#db-pull)               | Creates a database dump on a remote server, downloads it, and imports it locally.                                            |
+| [syncops:db-push](#db-push)               | Create a database dump (compressed by default) and optionally upload it to cloud storage.                                    |
+| [syncops:media-pull](#media-pull)         | Downloads media files from the remote server via SFTP into local storage.                                                    |
 | [syncops:media-push](#media-push)         | Backs up all media files to the specified cloud storage.                                                                     |
-| [syncops:media-pull](#media-pull)         | TBD Transfer all the media files from production to the local/dev environment via the cloud storage                          |
 | [project:backup](#project-backup)         | TBD Create a compressed archive of all the project files and upload it to the cloud storage                                  |
 | [syncops:project-deploy](#project-deploy) | TBD                                                                                                                          |
 | [syncops:project-pull](#project-pull)     | Commits untracked changes on the remote server, pushes them to the origin, and optionally merges them into the local branch. |
@@ -328,6 +328,66 @@ This example schedules a daily backup of your database to the `dropbox` disk eve
 
 This command currently **only supports MySQL and MariaDB** databases.
 Other database types supported by Laravel (PostgreSQL, SQLite, SQL Server, Redis, etc.) are not compatible.
+
+---
+
+<a name="media-pull"></a>
+### Command: `syncops:media-pull`
+
+The `syncops:media-pull` command automates the process of downloading media files
+from a **remote server** via SFTP directly into your local `storage/app` directory.
+
+This command is especially useful for **synchronizing media files** in development
+environments with production data without including them in your Git repository.
+
+This command performs the following actions:
+
+1. Connects to the specified remote server via SFTP.
+2. Recursively fetches all files under the remote `storage/app` directory.
+3. **Skips certain directories and files** according to the rules below.
+4. Downloads each file into your local `storage/app` folder, creating directories as needed.
+5. Optionally skips overwriting local files if `--no-overwrite` is provided.
+6. Ensures file sizes match to avoid unnecessary downloads when the local file is identical.
+
+#### Configuration
+
+Before using this command, ensure your remote servers are properly configured in your
+Laravel application's `config/syncops.php` file. The command will use the SSH connection
+details from this configuration to connect to the remote host.
+
+#### Usage in CLI
+
+```bash
+php artisan syncops:media-pull production
+````
+
+In this example, `production` is the name of your configured remote server.
+
+#### Options & arguments
+
+* **`server`**: The name of the remote server (as configured in your `syncops.php` config file).
+
+  ```bash
+  php artisan syncops:media-pull production
+  ```
+
+* **`--no-overwrite`**: Prevents overwriting existing local files if they already exist.
+  Useful if you only want to download new or changed files.
+
+  ```bash
+  php artisan syncops:media-pull production --no-overwrite
+  ```
+
+#### Note
+
+This command has the following special behaviors:
+
+* The remote path scanned is always `storage/app`.
+* Files inside any `/thumb/` or `/resized/` directories are **skipped**.
+* Files starting with a dot (hidden files) are **skipped**, **except** `.gitignore` files which are always downloaded.
+* Only files that either do not exist locally or have a different file size are downloaded (unless `--no-overwrite` is used).
+* All directory structures from the remote server are preserved locally.
+* Files are downloaded **directly via SFTP**, no intermediate cloud storage is used.
 
 ---
 
@@ -534,31 +594,6 @@ The `syncops:project-push` command supports the following option:
 ---
 ---
 ---
-
-<a name="media-pull"></a>
-### Media:pull
-
-The command connects to a remote server with SSH and executes `php artisan media:backup cloudName` in order to upload
-all the media files to the cloud storage first. After that it downloads all the media files from the cloud storage
-to the local file storage. The media files are synchronized between both environments and also the cloud storage.
-
-The command is intended to be executed on a local/dev environment in order to update the local media storage with the
-media files from the production/staging environment.
-
-#### Usage in CLI
-
-```bash
-php artisan media:pull production cloudName
-```
-- where `production` is the remote server name (defined in `/config/syncops.php`)
-- where `cloudName` is a cloud storage where the files are uploaded (defined in `/config/filesystems.php`)
-
-The command supports some optional arguments:
-```bash
-php artisan media:pull production cloudName folder --sudo
-```
-- `folder` is the name of the folder on the cloud storage where the media files are uploaded, the default is `storage/`
-- `--sudo` or `-x` forces superuser (sudo) on the remote server
 
 ---
 

@@ -1,126 +1,70 @@
 <?php namespace NumenCode\SyncOps\Console;
 
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Console\Command;
 use NumenCode\SyncOps\Classes\RemoteExecutor;
 
-class MediaPull extends RemoteCommand
+class MediaPull extends Command
 {
     protected $signature = 'syncops:media-pull
-        {server   : The name of the remote server}
-        {cloud    : The name of the cloud storage disk to upload media files to}
-        {folder?  : The target folder name in the cloud storage (default: "storage")}
-        {--x|sudo : Force super user (sudo) on the remote server}';
+        {server         : The name of the remote server}
+        {--no-overwrite : Do not overwrite existing local files if they already exist}';
 
-    protected $description = 'Runs syncops:media-push on the remote server, which uploads the media files to the cloud storage and downloads the media files to the local storage from there.';
+    protected $description = 'Downloads media files from the remote server via SFTP into local storage.';
 
-    public function handle()
+    public function handle(): int
     {
-        $cloud = $this->argument('cloud');
-        $folder = $this->resolveFolderName($this->argument('folder'));
-        $useSudo = $this->option('sudo') ? 'sudo ' : '';
+        $serverName = $this->argument('server');
+        $noOverwrite = $this->option('no-overwrite');
 
-        $this->comment("Connecting to remote server '{$this->argument('server')}'...");
-        $executor = new RemoteExecutor($this->argument('server'));
+        $this->comment("Connecting to remote server '{$serverName}'...");
+        $executor = new RemoteExecutor($serverName);
 
-        $this->line("Executing syncops:media-push on the remote server '{$this->argument('server')}'...");
-        $remoteCommands[] = ["{$useSudo}php artisan syncops:media-push {$cloud} {$folder}"];
-        $result = $executor->ssh->runAndPrint($remoteCommands);
+        $remotePath = rtrim($executor->config['path'], '/') . '/storage/app';
+        $localPath = storage_path('app');
 
-        if (!str_contains($result, 'files have been successfully uploaded')) {
-            $this->error("✘ An error occurred while uploading files to the cloud storage '{$cloud}' from remote server '{$this->argument('server')}'.");
-            return self::FAILURE;
+        $this->line("Fetching file list from remote server...");
+        $files = $executor->sftp->listFilesRecursively($remotePath);
+
+        if (empty($files)) {
+            $this->warn("No media files found on remote server.");
+            return self::SUCCESS;
         }
 
-        $localStorage = Storage::disk('local');
-        $cloudStorage = Storage::disk($cloud);
-
-        $files = array_filter($cloudStorage->allFiles(), function ($file) use ($folder) {
-            return starts_with($file, $folder);
-        });
-
-        $this->line("Downloading " . count($files) . " files from the cloud storage..." . PHP_EOL);
-
+        $this->line("Downloading " . count($files) . " media files...");
         $bar = $this->output->createProgressBar(count($files));
 
-        foreach ($files as $file) {
-            $bar->advance();
+        foreach ($files as $remoteFile) {
+            $relativePath = ltrim(str_replace($remotePath, '', $remoteFile), '/');
+            $localFile = $localPath . '/' . $relativePath;
 
-            $localStorageFile = ltrim($file, $folder);
+            // Ensure directory exists
+            if (!is_dir(dirname($localFile))) {
+                mkdir(dirname($localFile), 0777, true);
+            }
 
-            if ($localStorage->exists($localStorageFile)) {
-                if ($localStorage->size($localStorageFile) == $cloudStorage->size($file)) {
+            // Skip if file exists and we shouldn't overwrite
+            if ($noOverwrite && file_exists($localFile)) {
+                continue;
+            }
+
+            // Skip if same size
+            if (file_exists($localFile)) {
+                $remoteSize = $executor->sftp->filesizeRemote($remoteFile);
+                $localSize = filesize($localFile);
+
+                if ($remoteSize === $localSize) {
                     continue;
                 }
             }
 
-            $localStorage->put($localStorageFile, $cloudStorage->get($file));
-        }
+            $executor->sftp->download($remoteFile, $localFile);
 
-        $bar->finish();
-
-        $this->info(PHP_EOL . "✔ All files successfully downloaded to the local storage.");
-    }
-
-    protected function resolveFolderName($folderName = null)
-    {
-        return $folderName ? rtrim($folderName, '/') . '/' : 'storage/';
-    }
-
-
-    public function handleDEPRECATED()
-    {
-        if (!$this->sshConnect()) {
-            return $this->error("An error occurred while connecting with SSH.");
-        }
-
-        if ($this->option('sudo')) {
-            $this->sudo = 'sudo ';
-        }
-
-        $cloud = $this->argument('cloud');
-        $folder = $this->resolveFolderName($this->argument('folder'));
-
-        $this->info(PHP_EOL . "Now connected to the {$this->argument('server')} server." . PHP_EOL);
-        $this->line("Executing media:backup command...");
-
-        $result = $this->sshRunAndPrint([$this->sudo . 'php artisan media:backup ' . $cloud . ' ' . $folder]);
-
-        if (!str_contains($result, 'files successfully uploaded')) {
-            $this->error(PHP_EOL . "An error occurred while uploading files to the cloud storage.");
-
-            return false;
-        }
-
-        $localStorage = Storage::disk('local');
-        $cloudStorage = Storage::disk($cloud);
-
-        $files = array_filter($cloudStorage->allFiles(), function ($file) use ($folder) {
-            return starts_with($file, $folder);
-        });
-
-        $this->info(PHP_EOL . "Switched back to local environment." . PHP_EOL);
-
-        $this->line("Downloading " . count($files) . " files from the cloud storage..." . PHP_EOL);
-
-        $bar = $this->output->createProgressBar(count($files));
-
-        foreach ($files as $file) {
             $bar->advance();
-
-            $localStorageFile = ltrim($file, $folder);
-
-            if ($localStorage->exists($localStorageFile)) {
-                if ($localStorage->size($localStorageFile) == $cloudStorage->size($file)) {
-                    continue;
-                }
-            }
-
-            $localStorage->put($localStorageFile, $cloudStorage->get($file));
         }
 
         $bar->finish();
+        $this->info(PHP_EOL . PHP_EOL . "✔ Media files successfully synced from remote server.");
 
-        $this->line(PHP_EOL);
-        $this->alert('All files successfully downloaded to the local storage.');
+        return self::SUCCESS;
     }
 }
