@@ -140,7 +140,7 @@ cloud storage for media files, database synchronization and more.
 | [syncops:db-push](#db-push)               | Create a database dump (compressed by default) and optionally upload it to cloud storage.                                    |
 | [syncops:media-pull](#media-pull)         | Downloads media files from the remote server via SFTP into local storage.                                                    |
 | [syncops:media-push](#media-push)         | Backs up all media files to the specified cloud storage.                                                                     |
-| [project:backup](#project-backup)         | TBD Create a compressed archive of all the project files and upload it to the cloud storage                                  |
+| [project:backup](#project-backup)         | Create a compressed archive of project files and optionally upload it to cloud storage.                                      |
 | [syncops:project-deploy](#project-deploy) | TBD                                                                                                                          |
 | [syncops:project-pull](#project-pull)     | Commits untracked changes on the remote server, pushes them to the origin, and optionally merges them into the local branch. |
 | [syncops:project-push](#project-push)     | Adds and commits project changes locally and pushes them to the remote repository.                                           |
@@ -268,12 +268,8 @@ This command performs the following actions:
 
 #### Configuration
 
-Before using this command, ensure your Laravel application is properly configured:
-
-* **Database configuration** (`config/database.php`) – the command uses the `default`
-  connection to determine the database name, username, and password.
-* **Filesystem configuration** (`config/filesystems.php`) – if uploading to cloud storage,
-  the disk name specified as the `cloud` argument must exist.
+This command relies on Laravel’s **Filesystem configuration** if uploading to cloud storage.
+Make sure the chosen cloud storage disk is defined in `config/filesystems.php`.
 
 #### Usage in CLI
 
@@ -405,20 +401,8 @@ By default, the command excludes `.gitignore` files and any files located within
 
 #### Configuration
 
-Before using this command, ensure your cloud storage disks are properly configured in your Laravel application's
-`config/filesystems.php` file. For example, a basic Dropbox configuration might look like this:
-
-```php
-// config/filesystems.php
-
-'disks' => [
-    // ... other disks
-
-    'dropbox' => [
-        'driver' => 'dropbox',
-    ],
-],
-```
+This command relies on Laravel’s **Filesystem configuration**.
+Make sure the chosen cloud storage disk is defined in `config/filesystems.php`.
 
 #### Usage in CLI
 
@@ -469,6 +453,61 @@ $schedule->command('syncops:media-push dropbox')->dailyAt('03:00');
 ```
 
 This example schedules a daily backup of your media files to the `dropbox` disk every day at 3:00 AM.
+
+---
+
+<a name="project-backup"></a>
+### Command: `syncops:project-backup`
+
+Create a compressed archive of all project files and optionally upload it to the configured cloud storage.
+
+#### Configuration
+
+This command relies on Laravel’s **Filesystem configuration**.
+Make sure the chosen cloud storage disk is defined in `config/filesystems.php`.
+
+#### Usage in CLI
+
+```bash
+php artisan project:backup {cloudName?} {--folder=} {--timestamp=} {--exclude=} {--no-delete}
+```
+
+#### Options & arguments
+
+* **`cloudName`** *(optional)*
+  The name of the cloud storage disk where the archive will be uploaded.
+  Must be configured in `config/filesystems.php`.
+
+* **`--folder=`** *(optional)*
+  The folder where the archive will be stored. Applies both locally and on cloud storage.
+
+* **`--timestamp=`** *(optional)*
+  Date format used for naming the archive file.
+  Default: `Y-m-d_H-i-s`.
+
+* **`--exclude=`** *(optional)*
+  Comma-separated list of folders to exclude from the archive.
+  `/vendor` is always excluded by default.
+  Example:
+
+  ```bash
+  --exclude=node_modules,storage,tests
+  ```
+
+* **`--no-delete` / `-d`**
+  If set, the local archive file will **not** be deleted after upload.
+  Instead, it will be moved into the `--folder` (if specified).
+
+#### Usage in Scheduler
+
+To automate your project backups, add the command to your Winter CMS Scheduler
+(typically in `app/Plugin.php` or a dedicated service provider's `boot()` method).
+
+```php
+$schedule->command('syncops:project-backup dropbox --folder=_backup')->weekly()->mondays()->at('2:00')
+```
+
+This example schedules a daily backup of your project to the `dropbox` disk every monday at 2:00 AM.
 
 ---
 
@@ -577,13 +616,6 @@ The `syncops:project-push` command supports the following option:
   ```
 
 
----
-
-
-
-
-
-
 
 
 
@@ -595,42 +627,6 @@ The `syncops:project-push` command supports the following option:
 ---
 ---
 
----
-
-<a name="project-backup"></a>
-### Project:backup
-
-The command creates a compressed tarball file, which is an archive of all the project files in the current directory.
-The name of the archive is the current timestamp with the extension of `.tar.gz`. The timestamp format can be
-explicitly specified - the default format is `Y-m-d_H-i-s`. The command can also upload the file to the cloud
-storage, if an argument is provided. You can exclude explicitly selected folders from the archive.
-
-This command is useful if it's set in the Scheduler to create a complete backup once a week and upload it to the
-cloud storage.
-
-#### Usage in CLI
-
-```bash
-php artisan project:backup
-```
-
-The command supports some optional arguments:
-```bash
-php artisan project:backup cloudName --folder=files --timestamp=d-m-Y --exclude=files --no-delete
-```
-- `cloudName` is the cloud storage where the archive is uploaded (defined in `/config/filesystems.php`)
-- `--folder` is the name of the folder where the archive is stored (local and/or on the cloud storage)
-- `--timestamp` is a date format used for naming the archive file (default: `Y-m-d_H-i-s`)
-- `--exclude` is a comma-separated list of the folders, to be excluded from the archive (`/vendor` is excluded by default)
-- `--no-delete` or `-d` prevents deleting the local archive file after it's uploaded to the cloud storage
-
-#### Usage in Scheduler
-
-```
-$schedule->command('project:backup dropbox --folder=files')->weeklyOn(1, '01:00');
-```
-
----
 
 ### Project:deploy
 
