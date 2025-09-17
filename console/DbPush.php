@@ -12,7 +12,7 @@ class DbPush extends Command
     protected $signature = 'syncops:db-push
         {cloud?          : Cloud storage where the dump file is uploaded}
         {--folder=       : Folder where the dump file is stored (local and/or cloud)}
-        {--timestamp=    : Date format used for naming the dump file (default: Y-m-d_H-i-s)}
+        {--timestamp=    : Date format used for naming the dump file}
         {--g|no-gzip     : Skip gzip compression when creating the database dump}
         {--d|no-delete   : Do not delete the dump file after uploading to the cloud}';
 
@@ -23,7 +23,7 @@ class DbPush extends Command
     public function handle(): int
     {
         $folder = $this->resolveFolderName($this->option('folder'));
-        $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
+        $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
         $useGzip = !$this->option('no-gzip');
 
         $this->dumpFilename = now()->format($timestamp) . ($useGzip ? '.sql.gz' : '.sql');

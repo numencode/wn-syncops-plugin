@@ -2,6 +2,11 @@
 
 return [
 
+    /**
+     * Default timestamp format, used for naming files.
+     */
+    'timestamp' => 'Y-m-d_H_i_s',
+
     /*
     |--------------------------------------------------------------------------
     | SyncOps Remote Server Connections
