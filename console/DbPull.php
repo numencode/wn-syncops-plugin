@@ -12,7 +12,7 @@ class DbPull extends Command
 
     protected $signature = 'syncops:db-pull
         {server        : The name of the remote server}
-        {--timestamp=  : Date format used for naming the dump file (default: Y-m-d_H-i-s)}
+        {--timestamp=  : Date format used for naming the dump file}
         {--g|no-gzip   : Skip gzip compression when creating the database dump}
         {--i|no-import : Do not import the database dump locally}';
 
@@ -21,13 +21,11 @@ class DbPull extends Command
     public function handle(): int
     {
         $serverName = $this->argument('server');
-        $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
+        $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
         $useGzip = !$this->option('no-gzip');
         $timestamp = now()->format($timestamp);
         $fileName = "db_{$timestamp}.sql";
         $localTempFile = base_path($fileName);
-        $executor = null;
-        $remoteTempFile = null;
 
         try {
             $this->comment("Connecting to remote server '{$serverName}'...");
@@ -81,7 +79,7 @@ class DbPull extends Command
             $this->comment("Cleaning up temporary files...");
 
             // Delete remote dump
-            if (isset($executor->ssh) && $remoteTempFile) {
+            if (isset($executor->ssh) && isset($remoteTempFile)) {
                 try {
                     $executor->ssh->runRawCommand('rm -f ' . escapeshellarg($remoteTempFile));
                 } catch (\Exception $e) {

@@ -11,9 +11,9 @@ class ProjectBackup extends Command
 
     protected $signature = 'syncops:project-backup
         {cloudName?      : Cloud storage where the archive will be uploaded}
-        {--folder=       : The folder where the archive will be stored (locally and/or on cloud storage)}
-        {--timestamp=    : Date format used for naming the archive file (default: Y-m-d_H-i-s)}
-        {--exclude=      : Comma-separated list of folders to exclude (vendor and backup dir are excluded by default)}
+        {--folder=       : The folder where the archive will be stored (default is "backup"; locally and/or on cloud storage)}
+        {--timestamp=    : Date format used for naming the archive file}
+        {--exclude=      : Comma-separated list of folders to exclude ("vendor" and "backup" dir are excluded by default)}
         {--d|no-delete   : Do not delete the archive after upload to cloud storage}';
 
     protected $description = 'Create a compressed archive of project files and optionally upload it to cloud storage.';
@@ -26,7 +26,7 @@ class ProjectBackup extends Command
         $backupDirName = $folder ?? 'backup';
         $cloudFolderPrefix = $this->resolveFolderName($backupDirName);
         $backupDirFull = base_path($backupDirName);
-        $timestamp = $this->option('timestamp') ?: 'Y-m-d_H-i-s';
+        $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
 
         if (!File::isDirectory($backupDirFull)) {
             File::makeDirectory($backupDirFull, 0777, true, true);
