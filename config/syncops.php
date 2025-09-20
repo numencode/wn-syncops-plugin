@@ -2,14 +2,21 @@
 
 return [
 
-    /**
-     * Default timestamp format, used for naming files.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Timestamp Format
+    |--------------------------------------------------------------------------
+    |
+    | Here you can define the default timestamp format, used for naming files,
+    | such as database dump files, archive files, etc.
+    |
+    */
+
     'timestamp' => 'Y-m-d_H_i_s',
 
     /*
     |--------------------------------------------------------------------------
-    | SyncOps Remote Server Connections
+    | Remote Server Connections
     |--------------------------------------------------------------------------
     |
     | Here you can define the remote servers that SyncOps will connect to for
@@ -46,9 +53,9 @@ return [
             | used for deployment (production branch) and main development tracking.
             |
             */
-            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),
-            'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'),
-            'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),
+            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),    // Project root path
+            'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'), // Production branch name
+            'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'), // Development branch name
 
             /*
             |--------------------------------------------------------------------------
@@ -61,9 +68,9 @@ return [
             |
             */
             'permissions' => [
-                'root_user'   => env('REMOTE_PRODUCTION_ROOT_USER'),
-                'web_user'    => env('REMOTE_PRODUCTION_WEB_USER'),
-                'web_folders' => ['storage', 'themes'],
+                'root_user'   => env('REMOTE_PRODUCTION_ROOT_USER'), // Root user and group, e.g. `root:root`
+                'web_user'    => env('REMOTE_PRODUCTION_WEB_USER'),  // Web user and group, e.g. `www-data:www-data`
+                'web_folders' => ['storage', 'themes'],              // Folders owned by web user
             ],
 
            /*
@@ -83,9 +90,9 @@ return [
            |
            */
             'database'    => [
-                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'),
-                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'),
-                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'),
+                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'), // Database name
+                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'), // Database username
+                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'), // Database password
                 'tables'   => [
                     // Example: only sync custom plugin tables
                     // 'custom_plugin_orders',

@@ -72,7 +72,7 @@ class SshExecutor
             $output[] = $result;
 
             if ($print) {
-                echo $result . "\n";
+                echo $result;
             }
         }
 
