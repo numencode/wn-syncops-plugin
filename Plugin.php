@@ -8,7 +8,7 @@ use NumenCode\SyncOps\Console\MediaPush;
 use NumenCode\SyncOps\Console\ProjectPull;
 use NumenCode\SyncOps\Console\ProjectPush;
 use NumenCode\SyncOps\Console\ProjectBackup;
-use NumenCode\SyncOps\Console\ProjectDeployCommand;
+use NumenCode\SyncOps\Console\ProjectDeploy;
 
 class Plugin extends PluginBase
 {
@@ -32,7 +32,13 @@ class Plugin extends PluginBase
     {
         $this->mergeConfigFrom(__DIR__ . '/config/syncops.php', 'syncops');
 
+        $this->registerHelpers();
         $this->registerConsoleCommands();
+    }
+
+    protected function registerHelpers()
+    {
+        require_once __DIR__ . '/helpers.php';
     }
 
     protected function registerConsoleCommands()
@@ -42,8 +48,8 @@ class Plugin extends PluginBase
         $this->registerConsoleCommand('syncops.media_pull', MediaPull::class);
         $this->registerConsoleCommand('syncops.media_push', MediaPush::class);
         $this->registerConsoleCommand('syncops.project_backup', ProjectBackup::class);
+        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeploy::class);
         $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
         $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
-//        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeployCommand::class);
     }
 }

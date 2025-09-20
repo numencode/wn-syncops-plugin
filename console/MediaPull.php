@@ -6,17 +6,19 @@ use NumenCode\SyncOps\Classes\RemoteExecutor;
 class MediaPull extends Command
 {
     protected $signature = 'syncops:media-pull
-        {server         : The name of the remote server}
-        {--no-overwrite : Do not overwrite existing local files if they already exist}';
+        {server             : The name of the remote server}
+        {--o|--no-overwrite : Do not overwrite existing local files if they already exist}';
 
-    protected $description = 'Downloads media files from the remote server via SFTP into local storage.';
+    protected $description = 'Download media files from the remote server via SFTP into local storage.';
 
     public function handle(): int
     {
+        $this->newLine();
+
         $serverName = $this->argument('server');
         $noOverwrite = $this->option('no-overwrite');
 
-        $this->comment("Connecting to remote server '{$serverName}'...");
+        $this->line("Connecting to remote server '{$serverName}'...");
         $executor = new RemoteExecutor($serverName);
 
         $remotePath = rtrim($executor->config['path'], '/') . '/storage/app';
@@ -25,8 +27,10 @@ class MediaPull extends Command
         $this->line("Fetching file list from remote server...");
         $files = $executor->sftp->listFilesRecursively($remotePath);
 
+        $this->newLine();
+
         if (empty($files)) {
-            $this->warn("No media files found on remote server.");
+            $this->info("✔ No media files found on remote server.");
             return self::SUCCESS;
         }
 
@@ -63,8 +67,9 @@ class MediaPull extends Command
         }
 
         $bar->finish();
-        $this->info(PHP_EOL . PHP_EOL . "✔ Media files successfully synced from remote server.");
 
+        $this->newLine(2);
+        $this->info("✔ Media files successfully synced from remote server.");
         return self::SUCCESS;
     }
 }

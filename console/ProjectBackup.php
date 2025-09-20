@@ -10,7 +10,7 @@ class ProjectBackup extends Command
     use RunsLocalCommands;
 
     protected $signature = 'syncops:project-backup
-        {cloudName?      : Cloud storage where the archive will be uploaded}
+        {cloud?      : Cloud storage where the archive will be uploaded}
         {--folder=       : The folder where the archive will be stored (default is "backup"; locally and/or on cloud storage)}
         {--timestamp=    : Date format used for naming the archive file}
         {--exclude=      : Comma-separated list of folders to exclude ("vendor" and "backup" dir are excluded by default)}
@@ -22,59 +22,64 @@ class ProjectBackup extends Command
 
     public function handle(): int
     {
+        $this->newLine();
+
         $folder = $this->option('folder') ? rtrim($this->option('folder'), '/\\') : null;
         $backupDirName = $folder ?? 'backup';
-        $cloudFolderPrefix = $this->resolveFolderName($backupDirName);
+        $cloudFolderPrefix = format_path($backupDirName);
         $backupDirFull = base_path($backupDirName);
         $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
+        $isBackupDirCreated = false;
 
         if (!File::isDirectory($backupDirFull)) {
             File::makeDirectory($backupDirFull, 0777, true, true);
+            $isBackupDirCreated = true;
         }
 
         $exclude = $this->prepareExcludeList($this->option('exclude'), $backupDirName);
         $basename = now()->format($timestamp) . '.tar.gz';
         $this->archiveFile = $backupDirName . '/' . $basename;
 
-        $this->line(PHP_EOL . "Creating project archive ({$this->archiveFile})...");
+        $this->line("Creating project archive ({$this->archiveFile})...");
         $this->runLocalCommand("tar -pczf {$this->archiveFile} {$exclude} .", 3600);
-        $this->info("Project archive successfully created: {$this->archiveFile}" . PHP_EOL);
+        $this->comment("Project archive successfully created: {$this->archiveFile}");
+        $this->newLine();
 
-        if ($this->argument('cloudName')) {
-            $cloudName = $this->argument('cloudName');
-            $cloudStorage = Storage::disk($cloudName);
+        if ($this->argument('cloud')) {
+            $cloud = $this->argument('cloud');
+            $cloudStorage = Storage::disk($cloud);
 
-            $this->line("Uploading project archive to cloud storage [{$cloudName}]...");
+            $this->line("Uploading project archive to cloud storage [{$cloud}]...");
             $localFullPath = base_path($this->archiveFile);
             $stream = fopen($localFullPath, 'r');
             $cloudStorage->put($cloudFolderPrefix . basename($this->archiveFile), $stream);
             if (is_resource($stream)) {
                 fclose($stream);
             }
-            $this->info("Project archive successfully uploaded." . PHP_EOL);
+            $this->comment("Project archive successfully uploaded.");
+            $this->newLine();
 
             if (!$this->option('no-delete')) {
                 $this->line("Deleting local project archive...");
                 File::delete($localFullPath);
-                $this->info("Local archive successfully deleted." . PHP_EOL);
+                if ($isBackupDirCreated) {
+                    File::deleteDirectory($backupDirFull);
+                }
+                $this->comment("Local archive successfully deleted.");
             } else {
                 // Archive is already in $backupDirName
-                $this->info("Local archive preserved in: {$backupDirFull}" . PHP_EOL);
+                $this->comment("Local archive preserved in: {$backupDirFull}");
             }
         } else {
             // No cloud; if user wants to keep the archive and specified a folder, it's already in that folder.
             if ($this->option('no-delete')) {
-                $this->info("Local archive preserved in: {$backupDirFull}" . PHP_EOL);
+                $this->comment("Local archive preserved in: {$backupDirFull}");
             }
         }
 
+        $this->newLine();
         $this->info("✔ Project backup was successfully created.");
         return self::SUCCESS;
-    }
-
-    protected function resolveFolderName(?string $folderName): ?string
-    {
-        return $folderName ? rtrim($folderName, '/') . '/' : null;
     }
 
     protected function prepareExcludeList(?string $excludeList, string $backupDirName): string
