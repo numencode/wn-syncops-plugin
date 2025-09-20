@@ -16,19 +16,21 @@ class DbPull extends Command
         {--g|no-gzip   : Skip gzip compression when creating the database dump}
         {--i|no-import : Do not import the database dump locally}';
 
-    protected $description = 'Creates a database dump on a remote server, downloads it, and imports it locally.';
+    protected $description = 'Create a database dump on a remote server, download it, and import it locally.';
 
     public function handle(): int
     {
+        $this->newLine();
+
         $serverName = $this->argument('server');
         $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
         $useGzip = !$this->option('no-gzip');
         $timestamp = now()->format($timestamp);
-        $fileName = "db_{$timestamp}.sql";
+        $fileName = "{$timestamp}.sql";
         $localTempFile = base_path($fileName);
 
         try {
-            $this->comment("Connecting to remote server '{$serverName}'...");
+            $this->line("Connecting to remote server '{$serverName}'...");
             $executor = new RemoteExecutor($serverName);
             $remoteConfig = $executor->config['database'];
             $remoteTempFile = rtrim($executor->config['path'], '/') . '/' . $fileName . ($useGzip ? '.gz' : '');
@@ -55,7 +57,8 @@ class DbPull extends Command
                 $localTempFile = $uncompressedFile;
             }
 
-            $this->info("Database dump downloaded to {$localTempFile}");
+            $this->comment("Database dump downloaded to {$localTempFile}");
+            $this->newLine();
 
             if (!$this->option('no-import')) {
                 $this->line("Importing local database...");
@@ -70,20 +73,22 @@ class DbPull extends Command
 
                 $importCommand = MysqlCommandBuilder::import($localDbConfig, $localTempFile);
                 $this->runLocalCommand($importCommand);
-                $this->info("Database imported successfully into {$localDbConfig['database']}");
+                $this->comment("Database imported successfully into {$localDbConfig['database']}");
+                $this->newLine();
             }
         } catch (\Exception $e) {
+            $this->newLine();
             $this->error($e->getMessage());
             return self::FAILURE;
         } finally {
-            $this->comment("Cleaning up temporary files...");
+            $this->line("Cleaning up temporary files...");
 
             // Delete remote dump
             if (isset($executor->ssh) && isset($remoteTempFile)) {
                 try {
                     $executor->ssh->runRawCommand('rm -f ' . escapeshellarg($remoteTempFile));
                 } catch (\Exception $e) {
-                    $this->error("Failed to remove remote temp file: " . $e->getMessage());
+                    $this->error("✘ Failed to remove remote temp file: " . $e->getMessage());
                 }
             }
 
@@ -92,13 +97,15 @@ class DbPull extends Command
                 File::delete($localTempFile);
             }
 
-            $this->info("Cleanup complete.");
+            $this->comment("Cleanup complete.");
         }
 
+        $this->newLine();
+
         if ($this->option('no-import')) {
-            $this->info(PHP_EOL . "✔ Database dump saved to: {$localTempFile}");
+            $this->info("✔ Database dump saved to: {$localTempFile}");
         } else {
-            $this->info(PHP_EOL . "✔ Database successfully pulled and imported.");
+            $this->info("✔ Database successfully pulled and imported.");
         }
 
         return self::SUCCESS;

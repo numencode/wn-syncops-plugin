@@ -6,78 +6,70 @@ use NumenCode\SyncOps\Classes\RemoteExecutor;
 class ProjectDeploy extends Command
 {
     protected $signature = 'syncops:project-deploy
-        {server : The name of the remote server}
-        {--f|fast : Fast deploy (without clearing the cache)}
+        {server       : The name of the remote server}
+        {--f|fast     : Fast deploy (without clearing the cache)}
         {--c|composer : Force Composer install}
-        {--m|migrate : Run migrations}
-        {--x|sudo : Force super user (sudo)}';
+        {--m|migrate  : Run migrations}
+        {--x|sudo     : Force super user (sudo)}';
 
     protected $description = 'Deploy project to a remote server via Git.';
 
-    /**
-     * Entry point.
-     */
     public function handle(): int
     {
-        $server = $this->argument('server');
+        $this->newLine();
 
         try {
-            $this->comment("Connecting to remote server '{$server}'...");
-            $executor = new RemoteExecutor($server);
-            $config = $executor->config;
+            $this->line("Connecting to remote server '{$this->argument('server')}'...");
+            $this->newLine();
+            $executor = new RemoteExecutor($this->argument('server'));
 
-            // If remote SSH login fails early, SshExecutor will throw when methods are used.
-            // Check repository cleanliness first (prevent deploying on dirty working trees)
             if (!$executor->ssh->remoteIsClean()) {
-                $this->error("Remote repository is not clean. Commit or stash changes before deploying.");
+                $this->error("✘ Remote changes detected. Aborting deployment process.");
+                $this->newLine();
+                $this->warn("Please run a command:");
+                $this->info("php artisan syncops:project-pull " . $this->argument('server'));
                 return self::FAILURE;
             }
-
-            $useSudo = $this->option('sudo') ? true : false;
-
-            $this->line('');
 
             $success = $this->option('fast')
-                ? $this->fastDeploy($executor, $useSudo)
-                : $this->deploy($executor, $useSudo);
+                ? $this->fastDeploy($executor, (bool)$this->option('sudo'))
+                : $this->deploy($executor, (bool)$this->option('sudo'));
 
-            $this->handleOwnership($executor, $useSudo);
+            $this->handleOwnership($executor, (bool)$this->option('sudo'));
 
             if (!$success) {
-                $this->error("Project deployment FAILED. Check error logs to see what went wrong." . PHP_EOL);
+                $this->error("✘ Project deployment FAILED. Check error logs to see what went wrong.");
                 return self::FAILURE;
             }
 
-            $this->alert("Project was successfully deployed.");
+            $this->info("✔ Project was successfully deployed.");
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error("✘ An error occurred on server '{$server}':");
+            $this->error("✘ An error occurred on server '{$this->argument('server')}':");
             $this->error($e->getMessage());
             return self::FAILURE;
         }
     }
 
     /**
-     * Full deploy (with maintenance mode + cache flushes)
+     * Full deploy (with maintenance mode + cache flushes).
      */
     protected function deploy(RemoteExecutor $executor, bool $useSudo): bool
     {
-        $server = $this->argument('server');
-
-        $this->question('Putting the application into maintenance mode:');
+        $this->line('Putting the application into maintenance mode:');
         $executor->ssh->runAndPrint([$this->wrapSudo(['php', 'artisan', 'down'], $useSudo)]);
 
         sleep(1);
 
-        $this->question('Flushing the application cache:');
+        $this->line('Flushing the application cache:');
         $executor->ssh->runAndPrint($this->clearCommands($useSudo));
 
         $success = $this->fastDeploy($executor, $useSudo);
 
-        $this->question('Rebuilding the application cache:');
+        $this->line('Rebuilding the application cache:');
         $executor->ssh->runAndPrint($this->clearCommands($useSudo));
 
-        $this->question('Bringing the application out of the maintenance mode:');
+        $this->line('Bringing the application out of the maintenance mode:');
         $executor->ssh->runAndPrint([$this->wrapSudo(['php', 'artisan', 'up'], $useSudo)]);
 
         return $success;
@@ -91,11 +83,10 @@ class ProjectDeploy extends Command
         $config = $executor->config;
 
         if (!empty($config['permissions']['root_user'])) {
-            $this->question('Handling file ownership.');
+            $this->line('Handling file ownership...');
             $executor->ssh->runAndPrint([
                 $this->wrapSudo(['chown', $config['permissions']['root_user'], '-R', '.'], $useSudo)
             ]);
-            $this->line('');
         }
 
         $branchMain = array_key_exists('branch_main', $config) ? $config['branch_main'] : 'main';
@@ -109,16 +100,17 @@ class ProjectDeploy extends Command
     }
 
     /**
-     * Pull-based deploy
+     * Pull-based deploy.
      */
     protected function pullDeploy(RemoteExecutor $executor, bool $useSudo): bool
     {
-        $this->question('Deploying the project (pull mode):');
+        $this->line('Deploying the project (pull mode):');
+        $this->newLine();
 
         $result = $executor->ssh->runAndPrint([['git', 'pull']]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error("Conflicts detected. Reverting changes...");
+            $this->error("✘ Conflicts detected. Reverting changes...");
             $executor->ssh->runAndPrint([['git', 'reset', '--hard']]);
             return false;
         }
@@ -128,11 +120,12 @@ class ProjectDeploy extends Command
     }
 
     /**
-     * Merge-based deploy
+     * Merge-based deploy.
      */
     protected function mergeDeploy(RemoteExecutor $executor, bool $useSudo): bool
     {
-        $this->question('Deploying the project (merge mode):');
+        $this->line('Deploying the project (merge mode):');
+        $this->newLine();
 
         $config = $executor->config;
         $branchMain = $config['branch_main'] ?? 'main';
@@ -143,15 +136,16 @@ class ProjectDeploy extends Command
         ]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error("Conflicts detected. Reverting...");
+            $this->error("✘ Conflicts detected. Reverting...");
             $executor->ssh->runAndPrint([['git', 'reset', '--hard']]);
             return false;
         }
 
-        // push target branch if configured (backwards-compatible with previous code)
+        // Push target branch if configured
         $pushBranch = $config['branch'] ?? $config['branch_prod'] ?? null;
         if (!empty($pushBranch)) {
             $executor->ssh->runAndPrint([['git', 'push', 'origin', $pushBranch]]);
+            $this->newLine();
         }
 
         $this->afterDeploy($executor, $result, $useSudo);
@@ -159,23 +153,24 @@ class ProjectDeploy extends Command
     }
 
     /**
-     * Actions after a successful deploy (composer, migrations).
+     * Actions after a successful deployment (composer, migrations).
      */
     protected function afterDeploy(RemoteExecutor $executor, string $result, bool $useSudo): void
     {
-        // Composer
         if ($this->option('composer') || str_contains($result, 'composer.lock')) {
-            $this->question('Running Composer install (remote)...');
+            $this->newLine();
+            $this->line('Running Composer install (remote)...');
+            $this->newLine();
             $executor->ssh->runAndPrint($this->composerCommands($useSudo));
         }
 
-        // Migrations
-        if ($this->option('migrate')) {
-            $this->question('Running migrations (remote)...');
+        if ($this->option('migrate') || $this->option('composer') || str_contains($result, 'composer.lock')) {
+            $this->newLine();
+            $this->line('Running migrations (remote)...');
+            $this->newLine();
             $executor->ssh->runAndPrint($this->migrateCommands($useSudo));
         }
 
-        // ensure correct ownership after deploy
         $this->handleOwnership($executor, $useSudo);
     }
 
@@ -192,47 +187,14 @@ class ProjectDeploy extends Command
 
         $folders = array_map('trim', explode(',', $config['permissions']['web_folders']));
 
-        $this->question('Handling file ownership.');
-        $this->line('');
+        $this->line('Handling file ownership...');
+        $this->newLine();
 
         foreach ($folders as $folder) {
             $executor->ssh->runAndPrint([
                 $this->wrapSudo(['chown', $config['permissions']['web_user'], '-R', $folder], $useSudo)
             ]);
         }
-    }
-
-    /**
-     * Clear / cache related commands as arrays of args (suitable for runAndPrint).
-     */
-    protected function clearCommands(bool $useSudo): array
-    {
-        return [
-            $this->wrapSudo(['php', 'artisan', 'route:clear'], $useSudo),
-            $this->wrapSudo(['php', 'artisan', 'config:clear'], $useSudo),
-            $this->wrapSudo(['php', 'artisan', 'cache:clear'], $useSudo),
-        ];
-    }
-
-    /**
-     * Migration commands (array-of-arrays).
-     */
-    protected function migrateCommands(bool $useSudo): array
-    {
-        return [
-            $this->wrapSudo(['php', 'artisan', 'winter:up'], $useSudo),
-        ];
-    }
-
-    /**
-     * Composer commands (array-of-arrays).
-     */
-    protected function composerCommands(bool $useSudo): array
-    {
-        // prefer running composer as normal user unless sudo requested explicitly
-        return [
-            $this->wrapSudo(['composer', 'install', '--no-dev'], $useSudo),
-        ];
     }
 
     /**
@@ -243,6 +205,30 @@ class ProjectDeploy extends Command
         if ($useSudo) {
             array_unshift($commandParts, 'sudo');
         }
+
         return $commandParts;
+    }
+
+    protected function clearCommands(bool $useSudo): array
+    {
+        return [
+            $this->wrapSudo(['php', 'artisan', 'route:clear'], $useSudo),
+            $this->wrapSudo(['php', 'artisan', 'config:clear'], $useSudo),
+            $this->wrapSudo(['php', 'artisan', 'cache:clear'], $useSudo),
+        ];
+    }
+
+    protected function migrateCommands(bool $useSudo): array
+    {
+        return [
+            $this->wrapSudo(['php', 'artisan', 'winter:up'], $useSudo),
+        ];
+    }
+
+    protected function composerCommands(bool $useSudo): array
+    {
+        return [
+            $this->wrapSudo(['composer', 'install', '--no-dev'], $useSudo),
+        ];
     }
 }

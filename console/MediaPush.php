@@ -7,16 +7,18 @@ class MediaPush extends Command
 {
     protected $signature = 'syncops:media-push
         {cloud       : The name of the cloud storage disk to upload media files to}
-        {folder?     : The target folder name in the cloud storage (default: "storage")}
+        {--folder=   : The target folder name in the cloud storage (default: "storage")}
         {--l|log     : Show details for each file being processed}
         {--d|dry-run : Simulate the backup without uploading files}';
 
-    protected $description = 'Backs up all media files to the specified cloud storage.';
+    protected $description = 'Back up all media files to the specified cloud storage.';
 
     public function handle(): int
     {
+        $this->newLine();
+
         $cloud = $this->argument('cloud');
-        $folder = $this->argument('folder');
+        $folder = format_path($this->option('folder') ?: 'storage');
 
         try {
             $cloudStorage = Storage::disk($cloud);
@@ -32,7 +34,7 @@ class MediaPush extends Command
         $fileCount = count($files);
 
         if ($fileCount === 0) {
-            $this->warn("No media files found to upload.");
+            $this->info("✔ No media files found to upload.");
             return self::SUCCESS;
         }
 
@@ -41,46 +43,46 @@ class MediaPush extends Command
             return self::SUCCESS;
         }
 
-        $this->line(PHP_EOL . "Uploading {$fileCount} media file(s) to cloud storage '{$cloud}'..." . PHP_EOL);
+        $this->line("Uploading {$fileCount} media file(s) to cloud storage '{$cloud}'...");
 
-        $bar = $this->output->createProgressBar($fileCount);
+        if (!$this->option('log')) {
+            $bar = $this->output->createProgressBar($fileCount);
+        }
 
         foreach ($files as $file) {
             if (!$this->option('log')) {
                 $bar->advance();
             }
 
-            $cloudPath = $this->resolveFolderName($folder) . $file;
+            $cloudPath = $folder . $file;
 
             if ($cloudStorage->exists($cloudPath) && $cloudStorage->size($cloudPath) === Storage::size($file)) {
                 if ($this->option('log')) {
-                    $this->warn("File already exists: {$file}");
+                    $this->line("File already exists: {$file}");
                 }
-
                 continue;
             }
 
             $cloudStorage->put($cloudPath, Storage::get($file));
 
             if ($this->option('log')) {
-                $this->info("File successfully uploaded: {$file}");
+                $this->comment("File successfully uploaded: {$file}");
             }
         }
 
-        $bar->finish();
+        if (!$this->option('log')) {
+            $bar->finish();
+            $this->newLine();
+        }
 
-        $this->info(PHP_EOL . PHP_EOL . "✔ All media files have been successfully uploaded.");
+        $this->newLine();
+        $this->info("✔ All media files have been successfully uploaded.");
         return self::SUCCESS;
-    }
-
-    protected function resolveFolderName(?string $folderName): string
-    {
-        return $folderName ? rtrim($folderName, '/') . '/' : 'storage/';
     }
 
     protected function dryRun(array $files)
     {
-        $this->info("Dry run: The following files (" . count($files) . ") would be uploaded:");
+        $this->comment("Dry run: The following files (" . count($files) . ") would be uploaded:");
 
         foreach ($files as $file) {
             $this->line("- {$file}");
