@@ -29,8 +29,8 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: Move files to a fundamentals-plugin directory
-              run: mkdir fundamentals-plugin && find . -mindepth 1 -maxdepth 1 ! -name 'fundamentals-plugin' -exec mv -t fundamentals-plugin -- {} +
+            - name: Move files to a syncops-plugin directory
+              run: mkdir syncops-plugin && find . -mindepth 1 -maxdepth 1 ! -name 'syncops-plugin' -exec mv -t syncops-plugin -- {} +
 
             - name: Setup cache environment
               id: extcache
@@ -64,7 +64,7 @@ jobs:
                   shopt -u dotglob
                   cp config/cms.php config/testing/cms.php
                   mkdir -p plugins/numencode
-                  mv fundamentals-plugin plugins/numencode/fundamentals
+                  mv syncops-plugin plugins/numencode/syncops
 
             - name: Get Composer cache directory
               id: composercache
@@ -81,4 +81,4 @@ jobs:
               run: composer install --no-interaction --no-progress --no-suggest --prefer-dist
 
             - name: Run unit tests
-              run: php artisan winter:test -p NumenCode.Fundamentals  --configuration=plugins/numencode/fundamentals/phpunit.xml
+              run: php artisan winter:test -p NumenCode.SyncOps  --configuration=plugins/numencode/syncops/phpunit.xml
