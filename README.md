@@ -462,19 +462,19 @@ details from this configuration to connect to the remote host.
 #### Behavior
 
 * Checks if the remote working directory is **clean**:
-    - If not, the process is aborted, and you will be prompted to run `syncops:project-pull`.
+  - If not, the process is aborted, and you will be prompted to run `syncops:project-pull`.
 * Two deployment modes are supported:
-    - **Full deploy (default)**: Puts the app in maintenance mode, clears caches,
+  - **Full deploy (default)**: Puts the app in maintenance mode, clears caches,
       updates via Git, rebuilds caches, and brings the app back up.
-    - **Fast deploy (`--fast`)**: Skips cache clearing/rebuilding, updates via Git directly.
+  - **Fast deploy (`--fast`)**: Skips cache clearing/rebuilding, updates via Git directly.
 * **Deployment strategies**:
-    - **Pull mode** (`branch_main` set to `false` in config): Runs `git pull`.
-    - **Merge mode** (`branch_main` set to a branch name): Runs `git fetch` and `git merge origin/{branch}`.
-    - If `branch` or `branch_prod` is configured, the remote branch is pushed back to origin after a successful merge.
+  - **Pull mode** (`branch_main` set to `false` in config): Runs `git pull`.
+  - **Merge mode** (`branch_main` set to a branch name): Runs `git fetch` and `git merge origin/{branch}`.
+  - If `branch` or `branch_prod` is configured, the remote branch is pushed back to origin after a successful merge.
 * **Post-deploy steps**:
-    - Runs Composer install (with `--no-dev` option) if `--composer` is specified or if `composer.lock` changed.
-    - Runs migrations if `--migrate` is specified.
-    - Adjusts file/folder ownership according to `permissions` config.
+  - Runs Composer install (with `--no-dev` option) if `--composer` is specified or if `composer.lock` changed.
+  - Runs migrations if `--migrate` is specified.
+  - Adjusts file/folder ownership according to `permissions` config.
 
 ---
 
@@ -487,10 +487,10 @@ made in the backend (pages, layouts, etc.) are saved as static `.htm` files.
 
 This command performs the following actions:
 
-1.  Checks for and commits any untracked changes on the remote server.
-2.  **Optionally** executes a `git pull` on the remote to ensure it's up-to-date before pushing.
-3.  Pushes the committed changes from the remote server to your Git repository.
-4.  **Optionally** fetches the changes and merges them into your current local branch.
+1. Checks for and commits any untracked changes on the remote server.
+2. **Optionally** executes a `git pull` on the remote to ensure it's up-to-date before pushing.
+3. Pushes the committed changes from the remote server to your Git repository.
+4. **Optionally** fetches the changes and merges them into your current local branch.
 
 This streamlined workflow ensures you can quickly and safely retrieve and integrate content updates made directly
 on your production site, without manual intervention.
@@ -509,13 +509,13 @@ Before using this command, ensure your remote servers are properly configured in
 Laravel application's `config/syncops.php` file. The command will use the SSH connection
 details from this configuration to connect to the remote host.
 
-### Arguments
+#### Arguments
 
 | Argument | Description                                                                                                                          |
 |----------|--------------------------------------------------------------------------------------------------------------------------------------|
 | `server` | The name of the remote server (as defined in `config/syncops.php`).<br>Example: `php artisan syncops:project-pull production --pull` |
 
-### Options
+#### Options
 
 | Option              | Description                                                                                                                                                                                                                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -557,7 +557,7 @@ php artisan syncops:project-push [options]
 
 By default, this will commit with the message **"Server changes"** and push them to your configured remote.
 
-### Options
+#### Options
 
 | Option       | Description                                                                                                                                                                                                            |
 |--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -573,7 +573,7 @@ The recommended entries for the Scheduler are as follows:
 - create a backup of the database every day at 3 am  and push it to a cloud
 - commit changes from the production environment every day at 4 am
 
-```
+```php
 $schedule->command('syncops:project-backup dropbox --folder=files')->weeklyOn(1, '01:00');
 $schedule->command('syncops:db-push dropbox --folder=database')->daily()->at('02:00');
 $schedule->command('syncops:media-push dropbox')->daily()->at('03:00');
@@ -584,7 +584,7 @@ $schedule->command('syncops:project-push')->daily()->at('04:00');
 
 ## Dropbox setup
 
-Dropbox is very easy to configure and upon the registration on https://www.dropbox.com/register
+Dropbox is very easy to configure and upon the registration on [Dropbox website](https://www.dropbox.com/register)
 it offers free 2GB of cloud storage space.
 In order to setup the Dropbox, complete the registration, add the
 [NumenCode Dropbox Adapter Plugin](https://packagist.org/packages/numencode/wn-dropboxadapter-plugin)
@@ -592,28 +592,34 @@ and follow the [Installation steps here](https://github.com/numencode/wn-dropbox
 
 ---
 
-# Changelog
+## Changelog
 
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+All notable changes are documented in the [CHANGELOG](CHANGELOG.md).
 
-# Contributing
+---
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
+## Contributing
 
-# Security
+Please refer to the [CONTRIBUTING](CONTRIBUTING.md) guide for details on contributing to this project.
 
-If you discover any security-related issues, please email info@numencode.com instead of using the issue tracker.
+---
 
-# Author
+## Security
 
-**NumenCode.SyncOps** plugin was created by and is maintained by [Blaz Orazem](https://www.orazem.si/).
+If you identify any security issues, email info@numencode.com rather than using the issue tracker.
 
-Please write an email to info@numencode.com about all the things concerning this project.
+---
 
-Follow [@blazorazem](https://twitter.com/blazorazem) on Twitter.
+## Author
 
-# License
+The **NumenCode.SyncOps** plugin is created and maintained by [Blaz Orazem](https://orazem.si/).
+
+For inquiries, contact: info@numencode.com
+
+---
+
+## License
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-[![MIT License](https://img.shields.io/github/license/numencode/wn-syncops-plugin?label=License&color=blue&style=flat-square&cacheSeconds=600)](https://github.com/numencode/wn-syncops-plugin/blob/main/LICENSE.md)
+[![License](https://img.shields.io/github/license/numencode/wn-syncops-plugin?style=flat-square&color=0099FF)](https://github.com/numencode/wn-syncops-plugin/blob/main/LICENSE.md)
