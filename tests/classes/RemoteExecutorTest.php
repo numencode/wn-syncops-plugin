@@ -44,7 +44,7 @@ class RemoteExecutorTest extends PluginTestCase
         $password = 'secret';
 
         config()->set("syncops.connections.$server", [
-            'host' => 'example.com',
+            'host'     => 'example.com',
             'username' => 'user',
             'password' => $password,
             'key_path' => '',
@@ -74,7 +74,7 @@ class RemoteExecutorTest extends PluginTestCase
         file_put_contents($keyPath, 'FAKE_KEY');
 
         config()->set("syncops.connections.$server", [
-            'host' => 'example.com',
+            'host'     => 'example.com',
             'username' => 'user',
             'password' => '',
             'key_path' => $keyPath,
