@@ -8,9 +8,9 @@ class MysqlCommandBuilderTest extends PluginTestCase
     protected string $expectedUser;
     protected string $expectedPass;
     protected string $expectedDb;
+    protected string $expectedDbTest;
     protected string $expectedUsersTable;
     protected string $expectedOrdersTable;
-    protected string $expectedDbTest;
     protected string $expectedGzipOutput;
     protected string $expectedPlainOutput;
 
@@ -39,6 +39,10 @@ class MysqlCommandBuilderTest extends PluginTestCase
         }
     }
 
+    /**
+     * Test function: dump
+     * Test that command is built correctly when gzip compression is enabled.
+     */
     public function testDumpWithGzip(): void
     {
         $config = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
@@ -51,6 +55,10 @@ class MysqlCommandBuilderTest extends PluginTestCase
         $this->assertStringContainsString($this->expectedGzipOutput, $command);
     }
 
+    /**
+     * Test function: dump
+     * Test that command is built correctly when gzip compression is disabled.
+     */
     public function testDumpWithoutGzip(): void
     {
         $config = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
@@ -63,6 +71,10 @@ class MysqlCommandBuilderTest extends PluginTestCase
         $this->assertStringContainsString($this->expectedPlainOutput, $command);
     }
 
+    /**
+     * Test function: dump
+     * Test that command includes specific tables and gzip output path is correct per platform.
+     */
     public function testDumpWithSpecificTables(): void
     {
         $config = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
@@ -80,6 +92,10 @@ class MysqlCommandBuilderTest extends PluginTestCase
         $this->assertStringContainsString($expectedGzip, $command);
     }
 
+    /**
+     * Test function: import
+     * Test that import command is built correctly and file path is normalized.
+     */
     public function testImportCommand(): void
     {
         $dbConfig = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
