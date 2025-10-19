@@ -29,6 +29,10 @@ class SftpExecutorTest extends PluginTestCase
         parent::tearDown();
     }
 
+    /**
+     * Test function: connect
+     * Test that connect() returns an SFTP instance on successful connection.
+     */
     public function testConnectSuccess(): void
     {
         // This will not assert login() directly, since connect() creates its own SFTP internally.
@@ -48,6 +52,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertInstanceOf(SFTP::class, $result);
     }
 
+    /**
+     * Test function: connect
+     * Test that connect() throws an exception when connection fails.
+     */
     public function testConnectFailureThrowsException(): void
     {
         // Expect *any* exception on bad connection (phpseclib typically throws RuntimeException or Error)
@@ -63,6 +71,10 @@ class SftpExecutorTest extends PluginTestCase
         $executor->connect();
     }
 
+    /**
+     * Test function: upload
+     * Test that upload() successfully uploads a file using SFTP.
+     */
     public function testUploadSuccess(): void
     {
         $localFile = __DIR__ . '/_fixture_local.txt';
@@ -85,6 +97,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertTrue(true);
     }
 
+    /**
+     * Test function: upload
+     * Test that upload() throws an exception when upload fails.
+     */
     public function testUploadFailureThrowsException(): void
     {
         $localFile = __DIR__ . '/_fixture_local.txt';
@@ -105,6 +121,10 @@ class SftpExecutorTest extends PluginTestCase
         unlink($localFile);
     }
 
+    /**
+     * Test function: download
+     * Test that download() successfully retrieves a file from the remote server.
+     */
     public function testDownloadSuccess(): void
     {
         $localFile = __DIR__ . '/_downloaded.txt';
@@ -124,6 +144,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertTrue(true);
     }
 
+    /**
+     * Test function: download
+     * Test that download() throws an exception when the operation fails.
+     */
     public function testDownloadFailureThrowsException(): void
     {
         $localFile = __DIR__ . '/_downloaded.txt';
@@ -139,6 +163,10 @@ class SftpExecutorTest extends PluginTestCase
         $executor->download($remoteFile, $localFile);
     }
 
+    /**
+     * Test function: listFilesRecursively
+     * Test that listFilesRecursively() filters and returns valid files only.
+     */
     public function testListFilesRecursivelyFiltersEntries(): void
     {
         $entries = [
@@ -174,6 +202,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertEquals($expected, $result);
     }
 
+    /**
+     * Test function: filesizeRemote
+     * Test that filesizeRemote() returns correct integer file size.
+     */
     public function testFilesizeRemoteReturnsInt(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
@@ -185,6 +217,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertSame(1234, $executor->filesizeRemote('/remote/file.txt'));
     }
 
+    /**
+     * Test function: filesizeRemote
+     * Test that filesizeRemote() returns null when file size retrieval fails.
+     */
     public function testFilesizeRemoteReturnsNullOnFailure(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
@@ -196,6 +232,10 @@ class SftpExecutorTest extends PluginTestCase
         $this->assertNull($executor->filesizeRemote('/remote/missing.txt'));
     }
 
+    /**
+     * Test function: exists
+     * Test that exists() delegates to SFTP::file_exists and returns true.
+     */
     public function testExistsDelegatesToSftp(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
