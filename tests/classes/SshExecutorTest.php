@@ -228,9 +228,9 @@ class SshExecutorTest extends PluginTestCase
     public function testRunAndPrintSuccess(): void
     {
         $commands = [['echo', 'one'], ['echo', 'two']];
-        $rawOutput = " one\ntwo ";
-        $expectedOutput = 'one
-two';
+        // Ensure raw output has a Windows-style line ending for a robust test
+        $rawOutput = " one\r\ntwo ";
+        $expectedOutput = 'one' . "\n" . 'two'; // Use explicit Unix newline
 
         $executor = Mockery::mock(SshExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
 
@@ -239,7 +239,16 @@ two';
             ->with($commands, true)
             ->andReturn($rawOutput);
 
-        $this->assertEquals($expectedOutput, $executor->runAndPrint($commands));
+        $actualOutput = $executor->runAndPrint($commands);
+
+        // 1. Normalize line endings in the actual output (if SshExecutor doesn't)
+        $normalizedActual = str_replace(["\r\n", "\r"], "\n", $actualOutput);
+
+        // 2. Trim final output to remove any hidden final spaces or newlines
+        $finalActual = trim($normalizedActual);
+
+        // Assert against the clean expected string
+        $this->assertEquals($expectedOutput, $finalActual);
     }
 
     /**

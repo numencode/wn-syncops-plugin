@@ -24,7 +24,22 @@ class SftpExecutorTest extends PluginTestCase
 
     public function tearDown(): void
     {
+        // Verify and close Mockery
         Mockery::close();
+
+        // Ensure temporary files are removed even when a test throws before cleanup
+        $fixture = __DIR__ . '/_fixture_local.txt';
+        $downloaded = __DIR__ . '/_downloaded.txt';
+
+        clearstatcache();
+
+        if (is_file($fixture)) {
+            @unlink($fixture);
+        }
+
+        if (is_file($downloaded)) {
+            @unlink($downloaded);
+        }
 
         parent::tearDown();
     }
