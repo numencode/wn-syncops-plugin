@@ -43,13 +43,13 @@ class Plugin extends PluginBase
 
     protected function registerConsoleCommands()
     {
-        $this->registerConsoleCommand('syncops.db_pull', DbPull::class);
-        $this->registerConsoleCommand('syncops.db_push', DbPush::class);
-        $this->registerConsoleCommand('syncops.media_pull', MediaPull::class);
-        $this->registerConsoleCommand('syncops.media_push', MediaPush::class);
-        $this->registerConsoleCommand('syncops.project_backup', ProjectBackup::class);
-        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeploy::class);
-        $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
-        $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
+        $this->registerConsoleCommand('command.syncops.db_pull', DbPull::class);
+        $this->registerConsoleCommand('command.syncops.db_push', DbPush::class);
+        $this->registerConsoleCommand('command.syncops.media_pull', MediaPull::class);
+        $this->registerConsoleCommand('command.syncops.media_push', MediaPush::class);
+        $this->registerConsoleCommand('command.syncops.project_backup', ProjectBackup::class);
+        $this->registerConsoleCommand('command.syncops.project_deploy', ProjectDeploy::class);
+        $this->registerConsoleCommand('command.syncops.project_pull', ProjectPull::class);
+        $this->registerConsoleCommand('command.syncops.project_push', ProjectPush::class);
     }
 }

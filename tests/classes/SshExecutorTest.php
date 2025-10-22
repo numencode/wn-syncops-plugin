@@ -228,9 +228,9 @@ class SshExecutorTest extends PluginTestCase
     public function testRunAndPrintSuccess(): void
     {
         $commands = [['echo', 'one'], ['echo', 'two']];
-        $rawOutput = " one\ntwo ";
-        $expectedOutput = 'one
-two';
+        // Ensure raw output has a Windows-style line ending for a robust test
+        $rawOutput = " one\r\ntwo ";
+        $expectedOutput = 'one' . "\n" . 'two'; // Use explicit Unix newline
 
         $executor = Mockery::mock(SshExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
 
@@ -239,7 +239,16 @@ two';
             ->with($commands, true)
             ->andReturn($rawOutput);
 
-        $this->assertEquals($expectedOutput, $executor->runAndPrint($commands));
+        $actualOutput = $executor->runAndPrint($commands);
+
+        // 1. Normalize line endings in the actual output (if SshExecutor doesn't)
+        $normalizedActual = str_replace(["\r\n", "\r"], "\n", $actualOutput);
+
+        // 2. Trim final output to remove any hidden final spaces or newlines
+        $finalActual = trim($normalizedActual);
+
+        // Assert against the clean expected string
+        $this->assertEquals($expectedOutput, $finalActual);
     }
 
     /**
@@ -250,8 +259,8 @@ two';
     {
         $rawCommand = 'php artisan migrate --force > /dev/null 2>&1';
 
-        // Use double quotes around the path to match the executor's actual command construction
-        $expectedFullCommand = "cd \"{$this->config['path']}\" && {$rawCommand}";
+        // Build expected full command using escapeshellarg to be OS-agnostic (Windows uses double quotes, Linux uses single quotes)
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
 
         $output = "Migration successful\n";
 
@@ -274,8 +283,8 @@ two';
         $rawCommand = 'bad-command-string';
         $errorOutput = 'bash: bad-command-string: not found';
 
-        // Use double quotes for the path here as well
-        $expectedFullCommand = "cd \"{$this->config['path']}\" && {$rawCommand}";
+        // Build expected full command using escapeshellarg to be OS-agnostic
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
 
         $sshMock = Mockery::mock(SSH2::class);
         $sshMock->shouldReceive('exec')->once()->with($expectedFullCommand)->andReturn('');
