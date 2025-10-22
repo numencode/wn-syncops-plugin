@@ -39,10 +39,16 @@ class ProjectPush extends Command
 
             $this->line("Pushing changes to the remote repository...");
             $this->runLocalCommand('git push');
-        } catch (ProcessFailedException $e) {
+        } catch (\Throwable $e) {
             $this->newLine();
             $this->error("✘ An error occurred during the git process:");
-            $this->error($e->getProcess()->getErrorOutput());
+
+            if ($e instanceof ProcessFailedException) {
+                $this->error($e->getProcess()->getErrorOutput());
+            } else {
+                $this->error($e->getMessage());
+            }
+
             return self::FAILURE;
         }
 
