@@ -259,8 +259,8 @@ class SshExecutorTest extends PluginTestCase
     {
         $rawCommand = 'php artisan migrate --force > /dev/null 2>&1';
 
-        // Use double quotes around the path to match the executor's actual command construction
-        $expectedFullCommand = "cd \"{$this->config['path']}\" && {$rawCommand}";
+        // Build expected full command using escapeshellarg to be OS-agnostic (Windows uses double quotes, Linux uses single quotes)
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
 
         $output = "Migration successful\n";
 
@@ -283,8 +283,8 @@ class SshExecutorTest extends PluginTestCase
         $rawCommand = 'bad-command-string';
         $errorOutput = 'bash: bad-command-string: not found';
 
-        // Use double quotes for the path here as well
-        $expectedFullCommand = "cd \"{$this->config['path']}\" && {$rawCommand}";
+        // Build expected full command using escapeshellarg to be OS-agnostic
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
 
         $sshMock = Mockery::mock(SSH2::class);
         $sshMock->shouldReceive('exec')->once()->with($expectedFullCommand)->andReturn('');
