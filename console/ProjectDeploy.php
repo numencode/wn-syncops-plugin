@@ -21,7 +21,7 @@ class ProjectDeploy extends Command
         try {
             $this->line("Connecting to remote server '{$this->argument('server')}'...");
             $this->newLine();
-            $executor = new RemoteExecutor($this->argument('server'));
+            $executor = $this->createExecutor($this->argument('server'));
 
             if (!$executor->ssh->remoteIsClean()) {
                 $this->error("✘ Remote changes detected. Aborting deployment process.");
@@ -230,5 +230,10 @@ class ProjectDeploy extends Command
         return [
             $this->wrapSudo(['composer', 'install', '--no-dev'], $useSudo),
         ];
+    }
+
+    protected function createExecutor(string $server): RemoteExecutor
+    {
+        return new RemoteExecutor($server);
     }
 }
