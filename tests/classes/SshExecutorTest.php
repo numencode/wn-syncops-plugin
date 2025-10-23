@@ -47,17 +47,15 @@ class SshExecutorTest extends PluginTestCase
      */
     public function testConnectSuccess(): void
     {
-        $executor = Mockery::mock(SshExecutor::class, [$this->server, $this->config, $this->credentials])
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
+        // Avoid real network: pre-inject a connected SSH2 instance, so connect() returns it
+        $sshMock = Mockery::mock(SSH2::class);
 
-        try {
-            $result = $executor->connect();
-        } catch (\Throwable $e) {
-            $this->markTestSkipped('Real SSH connection not available in test environment or login failed.');
-            return;
-        }
+        $executor = new SshExecutor($this->server, $this->config, $this->credentials);
+        $this->setSshMock($executor, $sshMock);
 
+        $result = $executor->connect();
+
+        $this->assertSame($sshMock, $result);
         $this->assertInstanceOf(SSH2::class, $result);
     }
 

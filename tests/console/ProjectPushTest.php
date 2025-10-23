@@ -9,7 +9,6 @@ class ProjectPushTest extends PluginTestCase
     public function tearDown(): void
     {
         Mockery::close();
-
         parent::tearDown();
     }
 
