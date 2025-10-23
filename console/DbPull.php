@@ -31,7 +31,7 @@ class DbPull extends Command
 
         try {
             $this->line("Connecting to remote server '{$serverName}'...");
-            $executor = new RemoteExecutor($serverName);
+            $executor = $this->createExecutor($serverName);
             $remoteConfig = $executor->config['database'];
             $remoteTempFile = rtrim($executor->config['path'], '/') . '/' . $fileName . ($useGzip ? '.gz' : '');
 
@@ -109,5 +109,10 @@ class DbPull extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    protected function createExecutor(string $server): RemoteExecutor
+    {
+        return new RemoteExecutor($server);
     }
 }
