@@ -6,6 +6,11 @@ use NumenCode\SyncOps\Console\ProjectPush;
 
 class ProjectPushTest extends PluginTestCase
 {
+    public function setUp(): void
+    {
+        parent::setUp();
+    }
+
     public function tearDown(): void
     {
         Mockery::close();
