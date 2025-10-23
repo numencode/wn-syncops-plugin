@@ -8,7 +8,10 @@ use NumenCode\SyncOps\Classes\RemoteExecutor;
 
 class RemoteExecutorStub extends RemoteExecutor
 {
-    public function __construct() { /* bypass parent */ }
+    public function __construct()
+    {
+        /* bypass parent */
+    }
 }
 
 class ProjectDeployTest extends PluginTestCase
