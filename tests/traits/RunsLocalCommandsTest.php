@@ -60,8 +60,13 @@ class RunsLocalCommandsTest extends PluginTestCase
     {
         $this->expectException(ProcessTimedOutException::class);
 
-        // Run with timeout shorter than sleep duration
-        $this->runner->runLocalCommand('sleep 2', 1);
+        // Use a cross-platform long-running command
+        $command = strtoupper(PHP_OS_FAMILY) === 'WINDOWS'
+            ? 'ping 127.0.0.1 -n 3 > NUL'
+            : 'sleep 2';
+
+        // Run with timeout shorter than the command duration
+        $this->runner->runLocalCommand($command, 1);
     }
 }
 

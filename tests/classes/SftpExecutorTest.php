@@ -50,20 +50,20 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testConnectSuccess(): void
     {
-        // This will not assert login() directly, since connect() creates its own SFTP internally.
-        // We'll just mock the class partially and assert we get an SFTP instance back.
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
+        // Avoid real network: pre-inject an SFTP instance so connect() returns it without dialing out
+        $sftpMock = Mockery::mock(SFTP::class);
 
-        // We cannot intercept internal new SFTP, so we just call it and assert successful type.
-        try {
-            $result = $executor->connect();
-        } catch (\Throwable $e) {
-            $this->markTestSkipped('Real SFTP connection not available in test environment.');
-            return;
-        }
+        $executor = new SftpExecutor($this->server, $this->config, $this->credentials);
 
+        // Use Reflection to set protected $sftp property
+        $ref = new \ReflectionClass($executor);
+        $prop = $ref->getProperty('sftp');
+        $prop->setAccessible(true);
+        $prop->setValue($executor, $sftpMock);
+
+        $result = $executor->connect();
+
+        $this->assertSame($sftpMock, $result);
         $this->assertInstanceOf(SFTP::class, $result);
     }
 
