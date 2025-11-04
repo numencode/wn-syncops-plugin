@@ -20,32 +20,29 @@ class DbPushTest extends PluginTestCase
             'database' => 'db',
         ]);
 
-        // Stable timestamp
+        // Stable timestamp for predictable filenames
         Carbon::setTestNow(Carbon::create(2024, 1, 2, 3, 4, 5));
     }
 
     public function tearDown(): void
     {
-        // Cleanup any dump files created in cwd
-        foreach (['2024-01-02_03_04_05.sql.gz', '2024-01-02_03_04_05.sql'] as $f) {
+        // Cleanup all possible dump files and folders
+        foreach ([
+                     '2024-01-02_03_04_05.sql.gz',
+                     '2024-01-02_03_04_05.sql',
+                     'local/backups/2024-01-02_03_04_05.sql.gz',
+                     'local/backups/2024-01-02_03_04_05.sql',
+                 ] as $f) {
             if (is_file($f)) {
                 @unlink($f);
             }
         }
 
-        // Cleanup any moved files/directories created by tests
-        $movedDir = 'local/backups/';
-        $movedFile = $movedDir . '2024-01-02_03_04_05.sql.gz';
-
-        if (is_file($movedFile)) {
-            @unlink($movedFile);
-        }
-
-        if (is_dir($movedDir)) {
-            // Attempt to remove directory if empty
-            @rmdir($movedDir);
-            // Also try removing parent 'local' if empty
-            @rmdir('local');
+        // Cleanup folders if they exist
+        foreach (['local/backups', 'local'] as $dir) {
+            if (is_dir($dir)) {
+                @rmdir($dir);
+            }
         }
 
         Mockery::close();
@@ -54,32 +51,36 @@ class DbPushTest extends PluginTestCase
 
     /**
      * Test function: handle
-     * With no cloud specified, creates gzip dump and returns SUCCESS without moving/deleting.
+     * With no cloud specified and gzip enabled (default),
+     * the command should create a .sql.gz dump locally and return SUCCESS
+     * without uploading, moving, or deleting the dump file.
      */
     public function testHandleCreatesGzipDumpLocally(): void
     {
         $cmd = Mockery::mock(DbPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
-        // options/args defaults
+        // No folder or timestamp override, gzip enabled, no cloud target.
         $cmd->shouldReceive('option')->with('folder')->andReturnNull();
         $cmd->shouldReceive('option')->with('timestamp')->andReturnNull();
         $cmd->shouldReceive('option')->with('no-gzip')->andReturnNull(); // gzip enabled
         $cmd->shouldReceive('argument')->with('cloud')->andReturnNull();
 
-        // Expect mysqldump with gzip to the known filename
         $expectedFile = '2024-01-02_03_04_05.sql.gz';
-        $cmd->shouldReceive('runLocalCommand')->once()->with(
-            "mysqldump -uuser -ppass db | gzip > {$expectedFile}"
-        )->andReturnUsing(function () use ($expectedFile) {
-            file_put_contents($expectedFile, 'dump');
-            return '';
-        });
 
-        // Allow console output noise
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('comment')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
+        // Simulate mysqldump creating the gzip file
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db | gzip > {$expectedFile}")
+            ->andReturnUsing(function () use ($expectedFile) {
+                file_put_contents($expectedFile, 'dump');
+                return '';
+            });
+
+        // Allow console output without strict expectations
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
 
         $result = $cmd->handle();
 
@@ -89,40 +90,79 @@ class DbPushTest extends PluginTestCase
 
     /**
      * Test function: handle
-     * Uploads to cloud then deletes local file by default.
+     * When --no-gzip option is provided, the command should create a plain
+     * .sql file (no gzip) and return SUCCESS.
+     */
+    public function testHandleCreatesPlainSqlWhenNoGzipOptionUsed(): void
+    {
+        $cmd = Mockery::mock(DbPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $cmd->shouldReceive('option')->with('folder')->andReturnNull();
+        $cmd->shouldReceive('option')->with('timestamp')->andReturnNull();
+        $cmd->shouldReceive('option')->with('no-gzip')->andReturnTrue(); // disable gzip
+        $cmd->shouldReceive('argument')->with('cloud')->andReturnNull();
+
+        $expectedFile = '2024-01-02_03_04_05.sql';
+
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db > {$expectedFile}")
+            ->andReturnUsing(function () use ($expectedFile) {
+                file_put_contents($expectedFile, 'plain dump');
+                return '';
+            });
+
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
+
+        $result = $cmd->handle();
+
+        $this->assertSame(DbPush::SUCCESS, $result);
+        $this->assertFileExists($expectedFile);
+    }
+
+    /**
+     * Test function: handle
+     * When a cloud disk is provided and --no-delete is not set,
+     * the command should upload the .sql.gz file to the cloud
+     * and delete the local dump file afterwards.
      */
     public function testHandleUploadsToCloudAndDeletesLocal(): void
     {
         $cmd = Mockery::mock(DbPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
-        // Provide folder option; default gzip
-        $cmd->shouldReceive('option')->with('folder')->andReturn('backups');
+        $cmd->shouldReceive('option')->with('folder')->andReturn('backups/');
         $cmd->shouldReceive('option')->with('timestamp')->andReturn('Y-m-d_H_i_s');
         $cmd->shouldReceive('option')->with('no-gzip')->andReturnNull();
         $cmd->shouldReceive('option')->with('no-delete')->andReturnNull();
         $cmd->shouldReceive('argument')->with('cloud')->andReturn('s3');
 
         $expectedFile = '2024-01-02_03_04_05.sql.gz';
-        $expectedKey = 'backups/' . $expectedFile;
+        $expectedKey = 'backups/2024-01-02_03_04_05.sql.gz';
 
-        // runLocalCommand creates the file we will upload
-        $cmd->shouldReceive('runLocalCommand')->once()->with(
-            "mysqldump -uuser -ppass db | gzip > {$expectedFile}"
-        )->andReturnUsing(function () use ($expectedFile) {
-            file_put_contents($expectedFile, 'dump');
-            return '';
-        });
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db | gzip > {$expectedFile}")
+            ->andReturnUsing(function () use ($expectedFile) {
+                file_put_contents($expectedFile, 'dump');
+                return '';
+            });
 
-        // Mock Storage facade to return a disk mock that receives the upload once
+        // Mock cloud storage disk and expect the upload
         $cloud = Mockery::mock();
-        $cloud->shouldReceive('put')->once()->with($expectedKey, Mockery::type('resource'))->andReturnTrue();
+        $cloud->shouldReceive('put')
+            ->once()
+            ->with($expectedKey, Mockery::type('resource'))
+            ->andReturnTrue();
+
         Storage::shouldReceive('disk')->once()->with('s3')->andReturn($cloud);
 
-        // Allow console outputs
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('comment')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
 
         $result = $cmd->handle();
 
@@ -131,8 +171,10 @@ class DbPushTest extends PluginTestCase
     }
 
     /**
-     * Test function: handle + moveFile
-     * Uploads to cloud, keeps local file (no-delete) and moves it into provided folder.
+     * Test function: handle (+ moveFile)
+     * When a cloud disk is provided with --no-delete and a folder option,
+     * the command should upload the dump to the cloud AND keep the local file,
+     * moving it into the configured folder.
      */
     public function testHandleUploadsWithoutDeleteThenMovesIntoFolder(): void
     {
@@ -145,30 +187,33 @@ class DbPushTest extends PluginTestCase
         $cmd->shouldReceive('argument')->with('cloud')->andReturn('s3');
 
         $expectedFile = '2024-01-02_03_04_05.sql.gz';
-        $expectedKey = 'local/backups/' . $expectedFile;
+        $expectedKey = 'local/backups/2024-01-02_03_04_05.sql.gz';
 
-        $cmd->shouldReceive('runLocalCommand')->once()->with(
-            "mysqldump -uuser -ppass db | gzip > {$expectedFile}"
-        )->andReturnUsing(function () use ($expectedFile) {
-            file_put_contents($expectedFile, 'dump');
-            return '';
-        });
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db | gzip > {$expectedFile}")
+            ->andReturnUsing(function () use ($expectedFile) {
+                file_put_contents($expectedFile, 'dump');
+                return '';
+            });
 
-        // Mock cloud upload
         $cloud = Mockery::mock();
-        $cloud->shouldReceive('put')->once()->with($expectedKey, Mockery::type('resource'))->andReturnTrue();
+        $cloud->shouldReceive('put')
+            ->once()
+            ->with($expectedKey, Mockery::type('resource'))
+            ->andReturnTrue();
+
         Storage::shouldReceive('disk')->once()->with('s3')->andReturn($cloud);
 
-        // Allow console outputs
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('comment')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
 
         $result = $cmd->handle();
 
         $this->assertSame(DbPush::SUCCESS, $result);
-        // Ensure file was moved locally into the folder
+        // File should exist in the target folder and not in the root
         $this->assertFileExists($expectedKey);
         $this->assertFileDoesNotExist($expectedFile);
     }

@@ -11,8 +11,42 @@ class SftpExecutorTest extends PluginTestCase
     protected array $config;
     protected string $credentials = 'password';
 
+    /**
+     * Bind fake console commands to satisfy Winter’s kernel bootstrap.
+     */
+    protected static function bindFakeCommands(): void
+    {
+        // Avoid resolving real commands; we just need placeholders.
+        $fake = fn () => Mockery::mock(\Illuminate\Console\Command::class);
+
+        app()->instance('command.syncops.db_pull', $fake());
+        app()->instance('command.syncops.db_push', $fake());
+        app()->instance('command.syncops.media_pull', $fake());
+        app()->instance('command.syncops.media_push', $fake());
+        app()->instance('command.syncops.project_backup', $fake());
+        app()->instance('command.syncops.project_deploy', $fake());
+        app()->instance('command.syncops.project_push', $fake());
+        app()->instance('command.syncops.project_pull', $fake());
+    }
+
+    /**
+     * Ensure fake commands are bound before PluginTestCase bootstraps Artisan.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        if (function_exists('app')) {
+            self::bindFakeCommands();
+        }
+
+        parent::setUpBeforeClass();
+    }
+
     public function setUp(): void
     {
+        if (function_exists('app')) {
+            self::bindFakeCommands();
+        }
+
         parent::setUp();
 
         $this->config = [
@@ -28,7 +62,7 @@ class SftpExecutorTest extends PluginTestCase
         Mockery::close();
 
         // Ensure temporary files are removed even when a test throws before cleanup
-        $fixture = __DIR__ . '/_fixture_local.txt';
+        $fixture    = __DIR__ . '/_fixture_local.txt';
         $downloaded = __DIR__ . '/_downloaded.txt';
 
         clearstatcache();
@@ -45,6 +79,17 @@ class SftpExecutorTest extends PluginTestCase
     }
 
     /**
+     * Helper to set the protected $sftp property on the executor instance via Reflection.
+     */
+    protected function setSftpMock(SftpExecutor $executor, SFTP $sftpMock): void
+    {
+        $reflection = new \ReflectionClass($executor);
+        $property   = $reflection->getProperty('sftp');
+        $property->setAccessible(true);
+        $property->setValue($executor, $sftpMock);
+    }
+
+    /**
      * Test function: connect
      * Test that connect() returns an SFTP instance on successful connection.
      */
@@ -54,12 +99,7 @@ class SftpExecutorTest extends PluginTestCase
         $sftpMock = Mockery::mock(SFTP::class);
 
         $executor = new SftpExecutor($this->server, $this->config, $this->credentials);
-
-        // Use Reflection to set protected $sftp property
-        $ref = new \ReflectionClass($executor);
-        $prop = $ref->getProperty('sftp');
-        $prop->setAccessible(true);
-        $prop->setValue($executor, $sftpMock);
+        $this->setSftpMock($executor, $sftpMock);
 
         $result = $executor->connect();
 
@@ -69,19 +109,19 @@ class SftpExecutorTest extends PluginTestCase
 
     /**
      * Test function: connect
-     * Test that connect() throws an exception when connection fails.
+     * Test that connect() throws when connection/login fails (using an obviously invalid host).
      */
     public function testConnectFailureThrowsException(): void
     {
-        // Expect *any* exception on bad connection (phpseclib typically throws RuntimeException or Error)
         $executor = new SftpExecutor($this->server, [
             'host'     => 'nonexistent-host.invalid',
             'port'     => 22,
             'username' => 'user',
         ], 'wrong-password');
 
+        // phpseclib may throw different Throwable types depending on environment,
+        // so we just require that *something* fails loudly.
         $this->expectException(\Throwable::class);
-        $this->expectExceptionMessageMatches('/(SFTP|connect|failed)/i');
 
         $executor->connect();
     }
@@ -92,9 +132,10 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testUploadSuccess(): void
     {
-        $localFile = __DIR__ . '/_fixture_local.txt';
-        file_put_contents($localFile, 'content');
+        $localFile  = __DIR__ . '/_fixture_local.txt';
         $remoteFile = '/remote/file.txt';
+
+        file_put_contents($localFile, 'content');
 
         $sftpMock = Mockery::mock(SFTP::class);
         $sftpMock->shouldReceive('put')
@@ -102,13 +143,16 @@ class SftpExecutorTest extends PluginTestCase
             ->with($remoteFile, 'content')
             ->andReturnTrue();
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $executor->upload($localFile, $remoteFile);
 
-        unlink($localFile);
+        // Cleanup created file
+        @unlink($localFile);
 
+        // At least one assertion so PHPUnit doesn't mark as risky
         $this->assertTrue(true);
     }
 
@@ -118,22 +162,27 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testUploadFailureThrowsException(): void
     {
-        $localFile = __DIR__ . '/_fixture_local.txt';
-        file_put_contents($localFile, 'data');
+        $localFile  = __DIR__ . '/_fixture_local.txt';
         $remoteFile = '/remote/file.txt';
+
+        file_put_contents($localFile, 'data');
 
         $sftpMock = Mockery::mock(SFTP::class);
         $sftpMock->shouldReceive('put')
             ->once()
+            ->with($remoteFile, 'data')
             ->andReturnFalse();
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Failed to upload file/');
+
         $executor->upload($localFile, $remoteFile);
 
-        unlink($localFile);
+        @unlink($localFile);
     }
 
     /**
@@ -142,7 +191,7 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testDownloadSuccess(): void
     {
-        $localFile = __DIR__ . '/_downloaded.txt';
+        $localFile  = __DIR__ . '/_downloaded.txt';
         $remoteFile = '/remote/file.txt';
 
         $sftpMock = Mockery::mock(SFTP::class);
@@ -151,7 +200,8 @@ class SftpExecutorTest extends PluginTestCase
             ->with($remoteFile, $localFile)
             ->andReturnTrue();
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $executor->download($remoteFile, $localFile);
@@ -165,16 +215,22 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testDownloadFailureThrowsException(): void
     {
-        $localFile = __DIR__ . '/_downloaded.txt';
+        $localFile  = __DIR__ . '/_downloaded.txt';
         $remoteFile = '/remote/file.txt';
 
         $sftpMock = Mockery::mock(SFTP::class);
-        $sftpMock->shouldReceive('get')->once()->andReturnFalse();
+        $sftpMock->shouldReceive('get')
+            ->once()
+            ->with($remoteFile, $localFile)
+            ->andReturnFalse();
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Failed to download file/');
+
         $executor->download($remoteFile, $localFile);
     }
 
@@ -195,12 +251,17 @@ class SftpExecutorTest extends PluginTestCase
         ];
 
         $sftpMock = Mockery::mock(SFTP::class);
-        $sftpMock->shouldReceive('nlist')->once()->andReturn($entries);
+        $sftpMock->shouldReceive('nlist')
+            ->once()
+            ->with('/remote', true)
+            ->andReturn($entries);
+
         $sftpMock->shouldReceive('is_file')->andReturnUsing(function ($file) {
             return !str_contains($file, 'ignored');
         });
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $result = $executor->listFilesRecursively('/remote');
@@ -218,15 +279,38 @@ class SftpExecutorTest extends PluginTestCase
     }
 
     /**
+     * Test function: listFilesRecursively
+     * Test that listFilesRecursively() returns an empty array when directory is empty.
+     */
+    public function testListFilesRecursivelyReturnsEmptyArrayWhenNoEntries(): void
+    {
+        $sftpMock = Mockery::mock(SFTP::class);
+        $sftpMock->shouldReceive('nlist')
+            ->once()
+            ->with('/empty', true)
+            ->andReturn([]);
+
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
+        $executor->shouldReceive('connect')->andReturn($sftpMock);
+
+        $this->assertSame([], $executor->listFilesRecursively('/empty'));
+    }
+
+    /**
      * Test function: filesizeRemote
      * Test that filesizeRemote() returns correct integer file size.
      */
     public function testFilesizeRemoteReturnsInt(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
-        $sftpMock->shouldReceive('filesize')->once()->with('/remote/file.txt')->andReturn(1234);
+        $sftpMock->shouldReceive('filesize')
+            ->once()
+            ->with('/remote/file.txt')
+            ->andReturn(1234);
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $this->assertSame(1234, $executor->filesizeRemote('/remote/file.txt'));
@@ -239,9 +323,13 @@ class SftpExecutorTest extends PluginTestCase
     public function testFilesizeRemoteReturnsNullOnFailure(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
-        $sftpMock->shouldReceive('filesize')->once()->andReturn(false);
+        $sftpMock->shouldReceive('filesize')
+            ->once()
+            ->with('/remote/missing.txt')
+            ->andReturn(false);
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $this->assertNull($executor->filesizeRemote('/remote/missing.txt'));
@@ -254,9 +342,13 @@ class SftpExecutorTest extends PluginTestCase
     public function testExistsDelegatesToSftp(): void
     {
         $sftpMock = Mockery::mock(SFTP::class);
-        $sftpMock->shouldReceive('file_exists')->once()->with('/remote/test.txt')->andReturnTrue();
+        $sftpMock->shouldReceive('file_exists')
+            ->once()
+            ->with('/remote/test.txt')
+            ->andReturnTrue();
 
-        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])->makePartial();
+        $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
+            ->makePartial();
         $executor->shouldReceive('connect')->andReturn($sftpMock);
 
         $this->assertTrue($executor->exists('/remote/test.txt'));

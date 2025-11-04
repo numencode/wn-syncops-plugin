@@ -50,9 +50,14 @@ class MysqlCommandBuilderTest extends PluginTestCase
 
         $this->assertStringContainsString(
             "mysqldump --skip-comments --replace {$this->expectedUser} {$this->expectedPass} {$this->expectedDb}",
-            $command
+            $command,
+            'mysqldump command should include user, pass, and database name'
         );
-        $this->assertStringContainsString($this->expectedGzipOutput, $command);
+        $this->assertStringContainsString(
+            $this->expectedGzipOutput,
+            $command,
+            'Command should pipe output through gzip'
+        );
     }
 
     /**
@@ -66,9 +71,14 @@ class MysqlCommandBuilderTest extends PluginTestCase
 
         $this->assertStringContainsString(
             "mysqldump --skip-comments --replace {$this->expectedUser} {$this->expectedPass} {$this->expectedDb}",
-            $command
+            $command,
+            'mysqldump command should include user, pass, and database name'
         );
-        $this->assertStringContainsString($this->expectedPlainOutput, $command);
+        $this->assertStringContainsString(
+            $this->expectedPlainOutput,
+            $command,
+            'Command should redirect to plain file output'
+        );
     }
 
     /**
@@ -79,17 +89,45 @@ class MysqlCommandBuilderTest extends PluginTestCase
     {
         $config = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
         $tables = ['users', 'orders'];
-        $command = MysqlCommandBuilder::dump($config, '/backups/tables.sql', true, $tables);
+        $command = MysqlCommandBuilder::dump($config, '/backups/tables.sql.gz', true, $tables);
 
-        $this->assertStringContainsString($this->expectedUsersTable, $command);
-        $this->assertStringContainsString($this->expectedOrdersTable, $command);
+        $this->assertStringContainsString($this->expectedUsersTable, $command, 'Command should include users table');
+        $this->assertStringContainsString($this->expectedOrdersTable, $command, 'Command should include orders table');
 
-        // Output path for gzip depends on platform
         $expectedGzip = PHP_OS_FAMILY === 'Windows'
-            ? '| gzip > "/backups/tables.sql"'
-            : '| gzip > \'/backups/tables.sql\'';
+            ? '| gzip > "/backups/tables.sql.gz"'
+            : '| gzip > \'/backups/tables.sql.gz\'';
 
-        $this->assertStringContainsString($expectedGzip, $command);
+        $this->assertStringContainsString($expectedGzip, $command, 'Output path for gzip should be correct');
+    }
+
+    /**
+     * Test function: dump
+     * Test that command does not include any empty quotes or extra spaces when no tables are provided.
+     */
+    public function testDumpWithNoTablesDoesNotAddExtraSpaces(): void
+    {
+        $config = ['username' => 'user', 'password' => 'pass', 'database' => 'db'];
+        $command = MysqlCommandBuilder::dump($config, '/dump.sql', false, []);
+
+        $this->assertStringNotContainsString("''", $command, 'Command should not contain empty quotes');
+        $this->assertStringNotContainsString('  ', $command, 'Command should not contain double spaces');
+    }
+
+    /**
+     * Test function: dump
+     * Test that passwords containing single quotes are escaped correctly in the command.
+     */
+    public function testDumpEscapesSingleQuoteInPassword(): void
+    {
+        $config = ['username' => 'me', 'password' => "o'connor", 'database' => 'db'];
+        $command = MysqlCommandBuilder::dump($config, '/dump.sql', false);
+
+        $this->assertStringContainsString(
+            "-p'o'\\''connor'",
+            $command,
+            'Password containing single quote should be safely escaped'
+        );
     }
 
     /**
@@ -101,11 +139,13 @@ class MysqlCommandBuilderTest extends PluginTestCase
         $dbConfig = ['username' => 'testuser', 'password' => 'secret', 'database' => 'mydb'];
         $command = MysqlCommandBuilder::import($dbConfig, 'C:\\backups\\db.sql.gz');
 
-        $this->assertStringContainsString("-utestuser", $command);
-        $this->assertStringContainsString("-psecret", $command);
-        $this->assertStringContainsString($this->expectedDbTest, $command);
-
-        // Path should always be normalized to forward slashes
-        $this->assertStringContainsString("C:/backups/db.sql.gz", $command);
+        $this->assertStringContainsString('-utestuser', $command, 'Username should appear in command');
+        $this->assertStringContainsString('-psecret', $command, 'Password should appear in command');
+        $this->assertStringContainsString($this->expectedDbTest, $command, 'Database name should include test suffix');
+        $this->assertStringContainsString(
+            str_replace('\\', '/', 'C:\\backups\\db.sql.gz'),
+            $command,
+            'File path should be normalized to forward slashes'
+        );
     }
 }

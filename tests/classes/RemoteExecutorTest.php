@@ -8,11 +8,6 @@ use NumenCode\SyncOps\Classes\RemoteExecutor;
 
 class RemoteExecutorTest extends PluginTestCase
 {
-    public function setUp(): void
-    {
-        parent::setUp();
-    }
-
     public function tearDown(): void
     {
         Mockery::close();
@@ -21,22 +16,22 @@ class RemoteExecutorTest extends PluginTestCase
 
     /**
      * Test function: __construct
-     * Test that constructor throws an exception when server config is empty.
+     * It should throw an exception when no config exists for the given server.
      */
     public function testConstructorThrowsIfNoConfig(): void
     {
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage("No config for server invalid_server");
+        $this->expectExceptionMessage('No config for server invalid_server');
 
-        // Provide empty array to satisfy typed property
-        config()->set("syncops.connections.invalid_server", []);
+        // Use empty array (null would cause TypeError before our check)
+        config()->set('syncops.connections.invalid_server', []);
 
         new RemoteExecutor('invalid_server');
     }
 
     /**
      * Test function: __construct
-     * Test that SSH and SFTP executors are created with password credentials.
+     * When password credentials are provided, they should be used directly.
      */
     public function testConstructorWithPassword(): void
     {
@@ -50,12 +45,9 @@ class RemoteExecutorTest extends PluginTestCase
             'key_path' => '',
         ]);
 
-        // Mock executors to avoid real connections
-        $sshMock = Mockery::mock(SshExecutor::class)->makePartial();
-        $sftpMock = Mockery::mock(SftpExecutor::class)->makePartial();
-
-        $this->app->bind(SshExecutor::class, fn() => $sshMock);
-        $this->app->bind(SftpExecutor::class, fn() => $sftpMock);
+        // Mock PublicKeyLoader to ensure it's not used
+        $mockKeyLoader = Mockery::mock('alias:phpseclib3\Crypt\PublicKeyLoader');
+        $mockKeyLoader->shouldNotReceive('load');
 
         $executor = new RemoteExecutor($server);
 
@@ -65,7 +57,7 @@ class RemoteExecutorTest extends PluginTestCase
 
     /**
      * Test function: __construct
-     * Test that SSH and SFTP executors are created with public key credentials.
+     * When key_path is set, PublicKeyLoader::load() should be called.
      */
     public function testConstructorWithPublicKey(): void
     {
@@ -80,27 +72,23 @@ class RemoteExecutorTest extends PluginTestCase
             'key_path' => $keyPath,
         ]);
 
-        // Mock PublicKeyLoader
         $mockKeyLoader = Mockery::mock('alias:phpseclib3\Crypt\PublicKeyLoader');
-        $mockKeyLoader->shouldReceive('load')->once()->andReturn('PUBLIC_KEY');
-
-        $sshMock = Mockery::mock(SshExecutor::class)->makePartial();
-        $sftpMock = Mockery::mock(SftpExecutor::class)->makePartial();
-
-        $this->app->bind(SshExecutor::class, fn() => $sshMock);
-        $this->app->bind(SftpExecutor::class, fn() => $sftpMock);
+        $mockKeyLoader->shouldReceive('load')
+            ->once()
+            ->with('FAKE_KEY')
+            ->andReturn('PUBLIC_KEY');
 
         $executor = new RemoteExecutor($server);
 
         $this->assertInstanceOf(SshExecutor::class, $executor->ssh);
         $this->assertInstanceOf(SftpExecutor::class, $executor->sftp);
 
-        unlink($keyPath);
+        @unlink($keyPath);
     }
 
     /**
      * Test function: connectBoth
-     * Test that connectBoth() calls connect() on both SSH and SFTP executors.
+     * It should call connect() on both SSH and SFTP executors.
      */
     public function testConnectBoth(): void
     {
@@ -116,18 +104,23 @@ class RemoteExecutorTest extends PluginTestCase
 
         $executor->connectBoth();
 
-        // PHPUnit requires at least one assertion
-        $this->assertTrue(true);
+        // Verify that both connect() calls occurred
+        $sshMock->shouldHaveReceived('connect')->once();
+        $sftpMock->shouldHaveReceived('connect')->once();
+
+        // Add an explicit PHPUnit assertion to avoid "risky" flag
+        $this->assertTrue(true, 'Mock expectations verified successfully.');
     }
 }
 
 /**
- * Helper class to bypass RemoteExecutor constructor for connectBoth test.
+ * Helper class that bypasses RemoteExecutor's constructor
+ * so we can manually inject mock executors.
  */
 class RemoteExecutorTestHelper extends RemoteExecutor
 {
     public function __construct()
     {
-        // Bypass parent constructor
+        // Skip parent constructor
     }
 }

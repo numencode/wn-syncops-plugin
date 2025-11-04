@@ -9,7 +9,7 @@ class MysqlCommandBuilder
         $db = escapeshellarg($config['database']);
         $limitTables = implode(' ', array_map('escapeshellarg', $tables));
 
-        $command = "mysqldump --skip-comments --replace -u{$user} -p{$pass} {$db} {$limitTables}";
+        $command = trim("mysqldump --skip-comments --replace -u{$user} -p{$pass} {$db} {$limitTables}");
 
         if ($gzip) {
             $command .= " | gzip > " . escapeshellarg($outputFile);

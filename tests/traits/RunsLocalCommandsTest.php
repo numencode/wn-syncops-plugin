@@ -12,20 +12,22 @@ class RunsLocalCommandsTest extends PluginTestCase
     public function setUp(): void
     {
         parent::setUp();
-
         $this->runner = new RunsLocalCommandsTestHelper();
     }
 
     /**
      * Test function: runLocalCommand
-     * Test running a successful shell command.
+     * Test running a successful shell command cross-platform.
      */
     public function testRunLocalCommandSuccess(): void
     {
-        $output = $this->runner->runLocalCommand('echo "Hello World"');
+        $cmd = strtoupper(PHP_OS_FAMILY) === 'WINDOWS'
+            ? 'echo HelloWorld'
+            : 'echo "HelloWorld"';
 
-        // Assert the command output is as expected
-        $this->assertStringContainsString('Hello World', $output);
+        $output = $this->runner->runLocalCommand($cmd);
+
+        $this->assertStringContainsString('HelloWorld', $output);
     }
 
     /**
@@ -35,9 +37,20 @@ class RunsLocalCommandsTest extends PluginTestCase
     public function testRunLocalCommandFailure(): void
     {
         $this->expectException(ProcessFailedException::class);
-
-        // Run a guaranteed invalid command
         $this->runner->runLocalCommand('nonexistent_command_12345');
+    }
+
+    /**
+     * Test function: runLocalCommand
+     * Ensure error output is captured in ProcessFailedException.
+     */
+    public function testRunLocalCommandFailureIncludesErrorOutput(): void
+    {
+        try {
+            $this->runner->runLocalCommand('invalid_command_zzz');
+        } catch (ProcessFailedException $e) {
+            $this->assertStringContainsString('invalid_command_zzz', $e->getMessage());
+        }
     }
 
     /**
@@ -46,27 +59,34 @@ class RunsLocalCommandsTest extends PluginTestCase
      */
     public function testRunLocalCommandWithCustomTimeout(): void
     {
-        $output = $this->runner->runLocalCommand('echo "Timeout Test"', 5);
+        $cmd = strtoupper(PHP_OS_FAMILY) === 'WINDOWS'
+            ? 'echo TimeoutTest'
+            : 'echo "TimeoutTest"';
 
-        // Assert the command output is as expected
-        $this->assertStringContainsString('Timeout Test', $output);
+        $output = $this->runner->runLocalCommand($cmd, 5);
+        $this->assertStringContainsString('TimeoutTest', $output);
     }
 
     /**
      * Test function: runLocalCommand
-     * Test that a process exceeding the timeout throws an exception.
+     * Test that a process exceeding the timeout throws an exception and stops early.
      */
-    public function testRunLocalCommandTimeout(): void
+    public function testRunLocalCommandTimeoutStopsEarly(): void
     {
         $this->expectException(ProcessTimedOutException::class);
 
-        // Use a cross-platform long-running command
         $command = strtoupper(PHP_OS_FAMILY) === 'WINDOWS'
-            ? 'ping 127.0.0.1 -n 3 > NUL'
-            : 'sleep 2';
+            ? 'ping 127.0.0.1 -n 4 > NUL'
+            : 'sleep 3';
 
-        // Run with timeout shorter than the command duration
-        $this->runner->runLocalCommand($command, 1);
+        $start = microtime(true);
+
+        try {
+            $this->runner->runLocalCommand($command, 1);
+        } finally {
+            $elapsed = microtime(true) - $start;
+            $this->assertLessThan(2, $elapsed, 'Process should stop around timeout threshold');
+        }
     }
 }
 
@@ -76,11 +96,6 @@ class RunsLocalCommandsTest extends PluginTestCase
 class RunsLocalCommandsTestHelper
 {
     use RunsLocalCommands {
-        runLocalCommand as traitRunLocalCommand;
-    }
-
-    public function runLocalCommand(string $command, int $timeout = 60): string
-    {
-        return $this->traitRunLocalCommand($command, $timeout);
+        runLocalCommand as public;
     }
 }
