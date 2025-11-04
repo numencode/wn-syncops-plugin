@@ -36,7 +36,7 @@ Run the command:
 php artisan vendor:publish --tag=syncops-config
 ```
 
-The above command will create a new configuration file, located at `/config/syncops.php`, that contains all the options
+This command will create a new configuration file, located at `/config/syncops.php`, that contains all the options
 you need in order to configure your remote connections. The connections array contains a list of your servers keyed
 by name. Simply populate the credentials in the connections array via your environment variables in the `.env` file.
 
@@ -51,14 +51,14 @@ Each connection entry (e.g. `production`, `staging`) describes how SyncOps shoul
 'timestamp' => 'Y-m-d_H_i_s',
 ```
 
-Defines the default timestamp format used for naming files (backups, database dumps, archives).
+Defines the default timestamp format used for naming files (backups, database dumps, archives).  
 Defaults to `Y-m-d_H_i_s`.
 
 ---
 
 ### Connections
 
-All remote servers are defined under the `connections` array.
+All remote servers are defined under the `connections` array.  
 Each server is keyed by a name (e.g. `production`, `staging`) and contains:
 
 #### SSH Credentials
@@ -126,16 +126,16 @@ they are only required in your **local/dev environment** to allow SyncOps to con
 
 ## Commands overview
 
-| Command                                   | Description                                                                                                              |
-|:------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------|
-| [syncops:db-pull](#db-pull)               | Create a database dump on a remote server, download it, and import it locally.                                           |
-| [syncops:db-push](#db-push)               | Create a database dump (compressed by default) and optionally upload it to cloud storage.                                |
-| [syncops:media-pull](#media-pull)         | Download media files from the remote server via SFTP into local storage.                                                 |
-| [syncops:media-push](#media-push)         | Back up all media files to the specified cloud storage.                                                                  |
-| [syncops:project-backup](#project-backup) | Create a compressed archive of project files and optionally upload it to cloud storage.                                  |
-| [syncops:project-deploy](#project-deploy) | Deploy the project to a remote server via Git, with optional cache clearing, Composer install, and migrations.           |
-| [syncops:project-pull](#project-pull)     | Commit untracked changes on the remote server, push them to the origin, and optionally merge them into the local branch. |
-| [syncops:project-push](#project-push)     | Add and commit project changes locally and push them to the remote repository.                                           |
+| Command                                   | Description                                                                                                                 |
+|:------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------|
+| [syncops:db-pull](#db-pull)               | Create a database dump on a remote server,<br>download it, and import it locally.                                           |
+| [syncops:db-push](#db-push)               | Create a database dump (compressed by default)<br>and optionally upload it to cloud storage.                                |
+| [syncops:media-pull](#media-pull)         | Download media files from the remote server<br>via SFTP into local storage.                                                 |
+| [syncops:media-push](#media-push)         | Back up all media files<br>to the specified cloud storage.                                                                  |
+| [syncops:project-backup](#project-backup) | Create a compressed archive of project files<br>and optionally upload it to cloud storage.                                  |
+| [syncops:project-deploy](#project-deploy) | Deploy the project to a remote server via Git, with optional<br>cache clearing, Composer install, and migrations.              |
+| [syncops:project-pull](#project-pull)     | Commit untracked changes on the remote server, push them<br>to the origin, and optionally merge them into the local branch. |
+| [syncops:project-push](#project-push)     | Add and commit project changes locally<br>and push them to the remote repository.                                           |
 
 ---
 
