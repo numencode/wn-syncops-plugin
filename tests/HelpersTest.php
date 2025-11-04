@@ -11,9 +11,7 @@ class HelpersTest extends PluginTestCase
     public function testFormatPathWithoutTrailingSlash(): void
     {
         $result = format_path('/var/www/html');
-
-        // Assert a trailing slash was added
-        $this->assertEquals('/var/www/html/', $result);
+        $this->assertSame('/var/www/html/', $result);
     }
 
     /**
@@ -23,9 +21,7 @@ class HelpersTest extends PluginTestCase
     public function testFormatPathWithTrailingSlash(): void
     {
         $result = format_path('/var/www/html/');
-
-        // Assert the path remains unchanged
-        $this->assertEquals('/var/www/html/', $result);
+        $this->assertSame('/var/www/html/', $result);
     }
 
     /**
@@ -35,9 +31,27 @@ class HelpersTest extends PluginTestCase
     public function testFormatPathWithMultipleTrailingSlashes(): void
     {
         $result = format_path('/var/www/html///');
+        $this->assertSame('/var/www/html/', $result);
+    }
 
-        // Assert only one trailing slash remains
-        $this->assertEquals('/var/www/html/', $result);
+    /**
+     * Test function: format_path
+     * Test formatting the root directory path.
+     */
+    public function testFormatPathWithRootSlash(): void
+    {
+        $result = format_path('/');
+        $this->assertSame('/', $result);
+    }
+
+    /**
+     * Test function: format_path
+     * Ensure Windows-style backslashes are not modified unexpectedly.
+     */
+    public function testFormatPathWithWindowsBackslashes(): void
+    {
+        $result = format_path('C:\\laragon\\www\\project');
+        $this->assertSame('C:\\laragon\\www\\project/', $result);
     }
 
     /**
@@ -47,8 +61,6 @@ class HelpersTest extends PluginTestCase
     public function testFormatPathWithNull(): void
     {
         $result = format_path(null);
-
-        // Assert null is returned for null input
         $this->assertNull($result);
     }
 
@@ -59,8 +71,6 @@ class HelpersTest extends PluginTestCase
     public function testFormatPathWithEmptyString(): void
     {
         $result = format_path('');
-
-        // Assert null is returned for empty string
         $this->assertNull($result);
     }
 }

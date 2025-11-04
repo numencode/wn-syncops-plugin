@@ -3,14 +3,10 @@
 use Mockery;
 use PluginTestCase;
 use NumenCode\SyncOps\Console\ProjectPush;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class ProjectPushTest extends PluginTestCase
 {
-    public function setUp(): void
-    {
-        parent::setUp();
-    }
-
     public function tearDown(): void
     {
         Mockery::close();
@@ -39,7 +35,7 @@ class ProjectPushTest extends PluginTestCase
         }));
         $command->shouldNotReceive('runLocalCommand')->with('git push');
 
-        // Output expectations (not strictly validating content except key line)
+        // Output expectations (key line only)
         $command->shouldReceive('newLine')->atLeast()->once();
         $command->shouldReceive('line')->atLeast()->once();
         $command->shouldReceive('info')->once()->with(Mockery::pattern('/No changes to commit/i'));
@@ -51,9 +47,10 @@ class ProjectPushTest extends PluginTestCase
 
     /**
      * Test function: handle
-     * When there are changes, the command should add, commit with provided message, and push, returning SUCCESS.
+     * When there are changes and a custom --message is provided,
+     * the command should add, commit with that message, push, and return SUCCESS.
      */
-    public function testHandleWithChangesCommitsAndPushes(): void
+    public function testHandleWithChangesCommitsAndPushesWithCustomMessage(): void
     {
         $message = 'My custom commit message';
 
@@ -99,10 +96,57 @@ class ProjectPushTest extends PluginTestCase
 
     /**
      * Test function: handle
-     * If an exception occurs during any git operation (e.g., push),
-     * the command should print error messages and return FAILURE.
+     * When there are changes and no --message option is provided,
+     * the command should use the default commit message "Server changes",
+     * then commit, push, and return SUCCESS.
      */
-    public function testHandleProcessFailureReturnsFailure(): void
+    public function testHandleWithChangesUsesDefaultCommitMessage(): void
+    {
+        $command = Mockery::mock(ProjectPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        // No custom message provided
+        $command->shouldReceive('option')->with('message')->andReturnNull();
+
+        // Status indicates changes
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git status --porcelain')
+            ->andReturn(" M another_file.txt");
+
+        // Add all
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git add --all')
+            ->andReturn('');
+
+        // Commit with default message
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git commit -m "Server changes"')
+            ->andReturn('');
+
+        // Push
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git push')
+            ->andReturn('');
+
+        $command->shouldReceive('newLine')->atLeast()->once();
+        $command->shouldReceive('line')->atLeast()->once();
+        $command->shouldReceive('warn')->atLeast()->once();
+        $command->shouldReceive('info')->once()->with(Mockery::pattern('/successfully pushed/i'));
+
+        $result = $command->handle();
+
+        $this->assertSame(ProjectPush::SUCCESS, $result);
+    }
+
+    /**
+     * Test function: handle
+     * If a generic (non-ProcessFailedException) exception occurs during any git operation (e.g., push),
+     * the command should print a generic error message and return FAILURE.
+     */
+    public function testHandleGenericExceptionReturnsFailure(): void
     {
         $command = Mockery::mock(ProjectPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
@@ -121,9 +165,56 @@ class ProjectPushTest extends PluginTestCase
         }))->andReturn('');
 
         // Fail on push with a generic exception
-        $command->shouldReceive('runLocalCommand')->once()->with('git push')->andThrow(new \RuntimeException('push failed'));
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git push')
+            ->andThrow(new \RuntimeException('push failed'));
 
         // Expect error outputs
+        $command->shouldReceive('newLine')->atLeast()->once();
+        $command->shouldReceive('line')->atLeast()->once();
+        $command->shouldReceive('warn')->atLeast()->once();
+        $command->shouldReceive('error')->atLeast()->once();
+
+        $result = $command->handle();
+
+        $this->assertSame(ProjectPush::FAILURE, $result);
+    }
+
+    /**
+     * Test function: handle
+     * If a ProcessFailedException is thrown by a git operation,
+     * the command should detect that specific exception type, print
+     * the process error output, and return FAILURE.
+     */
+    public function testHandleProcessFailedExceptionReturnsFailure(): void
+    {
+        $command = Mockery::mock(ProjectPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        // Initial status: changes present
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git status --porcelain')
+            ->andReturn('M file');
+
+        $command->shouldReceive('option')->with('message')->andReturnNull(); // default message
+
+        // runLocalCommand for git add throws a ProcessFailedException
+        $processException = Mockery::mock(ProcessFailedException::class);
+        $processException->shouldReceive('getProcess->getErrorOutput')->andReturn('fatal: some git error');
+
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git add --all')
+            ->andThrow($processException);
+
+        // commit and push should never be called after failure
+        $command->shouldNotReceive('runLocalCommand')->with(Mockery::on(function ($arg) {
+            return is_string($arg) && str_starts_with($arg, 'git commit -m');
+        }));
+        $command->shouldNotReceive('runLocalCommand')->with('git push');
+
+        // Expect generic error header + process error output
         $command->shouldReceive('newLine')->atLeast()->once();
         $command->shouldReceive('line')->atLeast()->once();
         $command->shouldReceive('warn')->atLeast()->once();

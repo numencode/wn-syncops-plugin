@@ -16,10 +16,8 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
         $this->runner = new RunsRemoteCommandsTestHelper();
 
-        // Create mock for SshExecutor
+        // Create mock for SshExecutor and inject it into the helper
         $this->sshMock = Mockery::mock(SshExecutor::class);
-
-        // Inject mock into helper
         $this->runner->setSshExecutor($this->sshMock);
     }
 
@@ -32,12 +30,11 @@ class RunsRemoteCommandsTest extends PluginTestCase
         $this->sshMock->shouldReceive('runAndGet')
             ->once()
             ->with(['ls', '-la'])
-            ->andReturn("mocked output");
+            ->andReturn('mocked output');
 
         $output = $this->runner->runRemote('my-server', ['ls', '-la']);
 
-        // Assert mocked output is returned
-        $this->assertEquals("mocked output", $output);
+        $this->assertSame('mocked output', $output);
     }
 
     /**
@@ -49,12 +46,11 @@ class RunsRemoteCommandsTest extends PluginTestCase
         $this->sshMock->shouldReceive('runAndPrint')
             ->once()
             ->with(['echo', 'hello'])
-            ->andReturn("printed hello");
+            ->andReturn('printed hello');
 
         $output = $this->runner->runRemoteAndPrint('my-server', ['echo', 'hello']);
 
-        // Assert mocked output is returned
-        $this->assertEquals("printed hello", $output);
+        $this->assertSame('printed hello', $output);
     }
 
     /**
@@ -66,12 +62,27 @@ class RunsRemoteCommandsTest extends PluginTestCase
         $this->sshMock->shouldReceive('runRawCommand')
             ->once()
             ->with('uptime')
-            ->andReturn("raw uptime");
+            ->andReturn('raw uptime');
 
         $output = $this->runner->runRemoteRaw('my-server', 'uptime');
 
-        // Assert mocked output is returned
-        $this->assertEquals("raw uptime", $output);
+        $this->assertSame('raw uptime', $output);
+    }
+
+    /**
+     * Test function: runRemote
+     * Ensures runRemote uses the same cached SSH executor across multiple calls.
+     */
+    public function testRunRemoteUsesCachedSshExecutorAcrossCalls(): void
+    {
+        $this->sshMock->shouldReceive('runAndGet')->once()->with(['ls'])->andReturn('first');
+        $this->sshMock->shouldReceive('runAndGet')->once()->with(['pwd'])->andReturn('second');
+
+        $firstOutput = $this->runner->runRemote('serverX', ['ls']);
+        $secondOutput = $this->runner->runRemote('serverY', ['pwd']);
+
+        $this->assertSame('first', $firstOutput);
+        $this->assertSame('second', $secondOutput);
     }
 
     /**
@@ -80,13 +91,7 @@ class RunsRemoteCommandsTest extends PluginTestCase
      */
     public function testSshCaching(): void
     {
-        // Inject our mock once
-        $this->runner->setSshExecutor($this->sshMock);
-
-        // First call should return the injected mock
         $first = $this->runner->ssh('server1');
-
-        // Second call with a different server should still return the same mock
         $second = $this->runner->ssh('server2');
 
         $this->assertSame($first, $second);
