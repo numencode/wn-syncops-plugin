@@ -131,7 +131,7 @@ class MediaPullTest extends PluginTestCase
 
             $this->line("Connecting to remote server '{$serverName}'...");
 
-            $remotePath = rtrim($executor->config['path'], '/') . '/storage/app';
+            $remotePath = rtrim($executor->config['project']['path'], '/') . '/storage/app';
             $localPath = storage_path('app');
 
             $this->line("Fetching file list from remote server...");
@@ -207,7 +207,7 @@ class MediaPullTest extends PluginTestCase
     public function testHandleNoRemoteFilesReturnsSuccess(): void
     {
         $executor = new RemoteExecutorMediaStub();
-        $executor->config = ['path' => '/var/www/app'];
+        $executor->config['project'] = ['path' => '/var/www/app'];
 
         $sftp = Mockery::mock(SftpExecutor::class);
         $sftp->shouldReceive('listFilesRecursively')
@@ -243,7 +243,7 @@ class MediaPullTest extends PluginTestCase
         ];
 
         $executor = new RemoteExecutorMediaStub();
-        $executor->config = ['path' => '/var/www/app'];
+        $executor->config['project'] = ['path' => '/var/www/app'];
 
         $sftp = Mockery::mock(SftpExecutor::class);
         $sftp->shouldReceive('listFilesRecursively')
@@ -298,7 +298,7 @@ class MediaPullTest extends PluginTestCase
         $remoteFile = $remotePath . '/media-pull-tests/skip.txt';
 
         $executor = new RemoteExecutorMediaStub();
-        $executor->config = ['path' => '/var/www/app'];
+        $executor->config['project'] = ['path' => '/var/www/app'];
 
         $sftp = Mockery::mock(SftpExecutor::class);
         $sftp->shouldReceive('listFilesRecursively')
@@ -345,7 +345,7 @@ class MediaPullTest extends PluginTestCase
         $remoteDiff = $remotePath . '/media-pull-tests/diff.txt';
 
         $executor = new RemoteExecutorMediaStub();
-        $executor->config = ['path' => '/var/www/app'];
+        $executor->config['project'] = ['path' => '/var/www/app'];
 
         $sftp = Mockery::mock(SftpExecutor::class);
         $sftp->shouldReceive('listFilesRecursively')

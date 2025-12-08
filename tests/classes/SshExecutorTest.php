@@ -49,12 +49,13 @@ class SshExecutorTest extends PluginTestCase
 
         parent::setUp();
 
-        $this->config = [
+        $this->config['ssh'] = [
             'host'     => 'example.com',
             'port'     => 22,
             'username' => 'user',
-            'path'     => '/var/www/html', // Required for runCommands/runAndGet/runAndPrint/runRawCommand
         ];
+
+        $this->config['project']['path'] = '/var/www/html'; // Required for runCommands/runAndGet/runAndPrint/runRawCommand
     }
 
     public function tearDown(): void
@@ -102,10 +103,14 @@ class SshExecutorTest extends PluginTestCase
     public function testConnectFailureThrowsException(): void
     {
         $badConfig = [
-            'host'     => 'invalid-host.example.invalid', // should never resolve
-            'port'     => 22,
-            'username' => 'user',
-            'path'     => '/var/www/html',
+            'ssh'     => [
+                'host'     => 'invalid-host.example.invalid', // should never resolve
+                'port'     => 22,
+                'username' => 'user',
+            ],
+            'project' => [
+                'path' => '/var/www/html',
+            ],
         ];
 
         $executor = new SshExecutor($this->server, $badConfig, 'wrong-password');
@@ -184,12 +189,12 @@ class SshExecutorTest extends PluginTestCase
 
         $executor->shouldReceive('executeSecureCommand')
             ->once()
-            ->with(['echo', 'hello'], $this->config['path'])
+            ->with(['echo', 'hello'], $this->config['project']['path'])
             ->andReturn($output1);
 
         $executor->shouldReceive('executeSecureCommand')
             ->once()
-            ->with(['ls', '-la'], $this->config['path'])
+            ->with(['ls', '-la'], $this->config['project']['path'])
             ->andReturn($output2);
 
         $this->assertEquals($expectedOutput, $executor->runCommands($commands));
@@ -202,7 +207,7 @@ class SshExecutorTest extends PluginTestCase
     public function testRunCommandsMissingPathThrowsException(): void
     {
         $config = $this->config;
-        unset($config['path']);
+        unset($config['project']['path']);
 
         $executor = new SshExecutor($this->server, $config, $this->credentials);
 
@@ -225,13 +230,13 @@ class SshExecutorTest extends PluginTestCase
         // Command 1 succeeds
         $executor->shouldReceive('executeSecureCommand')
             ->once()
-            ->with(['echo', 'ok'], $this->config['path'])
+            ->with(['echo', 'ok'], $this->config['project']['path'])
             ->andReturn('ok');
 
         // Command 2 fails: simulate the exception thrown by executeSecureCommand()
         $executor->shouldReceive('executeSecureCommand')
             ->once()
-            ->with(['bad', 'command'], $this->config['path'])
+            ->with(['bad', 'command'], $this->config['project']['path'])
             ->andThrow(
                 \RuntimeException::class,
                 "Remote command failed on [{$this->server}]:\nCommand: 'bad' 'command'\nError: not found"
@@ -303,7 +308,7 @@ class SshExecutorTest extends PluginTestCase
         $rawCommand = 'php artisan migrate --force > /dev/null 2>&1';
 
         // Build expected full command using escapeshellarg to be OS-agnostic
-        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['project']['path']) . " && {$rawCommand}";
 
         $output = "Migration successful\n";
 
@@ -327,7 +332,7 @@ class SshExecutorTest extends PluginTestCase
         $errorOutput = 'bash: bad-command-string: not found';
 
         // Build expected full command using escapeshellarg to be OS-agnostic
-        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['path']) . " && {$rawCommand}";
+        $expectedFullCommand = 'cd ' . escapeshellarg($this->config['project']['path']) . " && {$rawCommand}";
 
         $sshMock = Mockery::mock(SSH2::class);
         $sshMock->shouldReceive('exec')->once()->with($expectedFullCommand)->andReturn('');

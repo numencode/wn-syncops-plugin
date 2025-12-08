@@ -21,7 +21,7 @@ class MediaPull extends Command
         $this->line("Connecting to remote server '{$serverName}'...");
         $executor = new RemoteExecutor($serverName);
 
-        $remotePath = rtrim($executor->config['path'], '/') . '/storage/app';
+        $remotePath = rtrim($executor->config['project']['path'], '/') . '/storage/app';
         $localPath = storage_path('app');
 
         $this->line("Fetching file list from remote server...");

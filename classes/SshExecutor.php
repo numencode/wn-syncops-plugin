@@ -19,10 +19,10 @@ class SshExecutor
     public function connect(): SSH2
     {
         if (!$this->ssh) {
-            $this->ssh = new SSH2($this->config['host'], $this->config['port'] ?? 22);
+            $this->ssh = new SSH2($this->config['ssh']['host'], $this->config['ssh']['port'] ?? 22);
 
-            if (!$this->ssh->login($this->config['username'], $this->credentials)) {
-                throw new \RuntimeException("SSH login failed for server: {$this->config['host']}");
+            if (!$this->ssh->login($this->config['ssh']['username'], $this->credentials)) {
+                throw new \RuntimeException("SSH login failed for server: {$this->config['ssh']['host']}");
             }
         }
 
@@ -61,14 +61,14 @@ class SshExecutor
      */
     public function runCommands(array $commands, bool $print = false): string
     {
-        if (!isset($this->config['path'])) {
-            throw new \RuntimeException("Path is not defined for [{$this->config['host']}]");
+        if (!isset($this->config['project']['path'])) {
+            throw new \RuntimeException("Path is not defined for [{$this->config['ssh']['host']}]");
         }
 
         $output = [];
 
         foreach ($commands as $commandParts) {
-            $result = $this->executeSecureCommand($commandParts, $this->config['path']);
+            $result = $this->executeSecureCommand($commandParts, $this->config['project']['path']);
             $output[] = $result;
 
             if ($print) {
@@ -113,7 +113,7 @@ class SshExecutor
     {
         $this->connect();
 
-        $fullCommand = "cd " . escapeshellarg($this->config['path']) . " && {$command}";
+        $fullCommand = "cd " . escapeshellarg($this->config['project']['path']) . " && {$command}";
         $output = $this->ssh->exec($fullCommand);
 
         if ($this->ssh->getExitStatus() !== 0) {

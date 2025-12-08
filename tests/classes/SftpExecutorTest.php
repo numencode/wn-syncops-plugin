@@ -49,7 +49,7 @@ class SftpExecutorTest extends PluginTestCase
 
         parent::setUp();
 
-        $this->config = [
+        $this->config['ssh'] = [
             'host'     => 'example.com',
             'port'     => 22,
             'username' => 'user',
