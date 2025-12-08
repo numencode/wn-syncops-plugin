@@ -69,11 +69,8 @@ class ProjectDeployTest extends PluginTestCase
     public function testFullDeployRunsMaintenanceAndCacheCommands(): void
     {
         $executor = new RemoteExecutorStub();
-        $executor->config = [
-            'branch_main' => 'main',
-            'branch_prod' => 'prod',
-            // no permissions to keep ownership handling a no-op here
-        ];
+        $executor->config['project']['branch_main'] = 'main';
+        $executor->config['project']['branch_prod'] = 'prod';
 
         $ssh = Mockery::mock(SshExecutor::class);
         $executor->ssh = $ssh;
@@ -139,9 +136,7 @@ class ProjectDeployTest extends PluginTestCase
     public function testFastPullDeploySuccessTriggersComposerAndMigrateFromComposerLock(): void
     {
         $executor = new RemoteExecutorStub();
-        $executor->config = [
-            'branch_main' => false, // pull-based deploy
-        ];
+        $executor->config['project']['branch_main'] = false; // pull-based deploy
 
         $ssh = Mockery::mock(SshExecutor::class);
         $executor->ssh = $ssh;
@@ -197,9 +192,7 @@ class ProjectDeployTest extends PluginTestCase
     public function testFastPullDeployComposerAndMigrateTriggeredByOptions(): void
     {
         $executor = new RemoteExecutorStub();
-        $executor->config = [
-            'branch_main' => false,
-        ];
+        $executor->config['project']['branch_main'] = false;
 
         $ssh = Mockery::mock(SshExecutor::class);
         $executor->ssh = $ssh;
@@ -254,7 +247,7 @@ class ProjectDeployTest extends PluginTestCase
     public function testPullDeployConflictResetsAndFails(): void
     {
         $executor = new RemoteExecutorStub();
-        $executor->config = ['branch_main' => false];
+        $executor->config['project']['branch_main'] = false;
 
         $ssh = Mockery::mock(SshExecutor::class);
         $executor->ssh = $ssh;
@@ -297,15 +290,16 @@ class ProjectDeployTest extends PluginTestCase
      * - root_user ownership is applied with sudo,
      * - git fetch/merge is performed,
      * - the configured branch is pushed,
-     * - web_folders ownership is applied with sudo for each folder,
-     * and the deployment returns SUCCESS.
+     * - web_folders ownership is applied with sudo for each folder, and the deployment returns SUCCESS.
      */
     public function testMergeDeployPushesBranchAndHandlesOwnershipWithSudo(): void
     {
         $executor = new RemoteExecutorStub();
         $executor->config = [
-            'branch_main' => 'main',
-            'branch'      => 'deploy',
+            'project' => [
+                'branch_main' => 'main',
+                'branch_prod' => 'prod',
+            ],
             'permissions' => [
                 'root_user'   => 'root:root',
                 'web_user'    => 'www-data:www-data',
@@ -338,7 +332,7 @@ class ProjectDeployTest extends PluginTestCase
         $ssh->shouldReceive('runAndPrint')
             ->once()
             ->with([
-                ['git', 'push', 'origin', 'deploy'],
+                ['git', 'push', 'origin', 'prod'],
             ]);
 
         // handleOwnership is called twice:

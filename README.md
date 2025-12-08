@@ -74,8 +74,8 @@ Each server is keyed by a name (e.g. `production`, `staging`) and contains:
 #### Project Settings
 
 * `path` → Absolute path to the project root on the remote server
-* `branch_prod` → Name of the production branch (default: `prod`)
 * `branch_main` → Name of the main development branch (default: `main`)
+* `branch_prod` → Name of the production branch (default: `prod`)
 
 #### Permissions (Optional)
 

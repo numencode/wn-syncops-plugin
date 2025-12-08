@@ -59,7 +59,7 @@ class ProjectPull extends Command
             $this->line("Fetching and merging changes locally...");
             $this->runLocalCommand('git fetch origin');
 
-            $mergeBranch = $executor->config['branch_prod'] ?? $currentRemoteBranch;
+            $mergeBranch = $executor->config['project']['branch_prod'] ?? $currentRemoteBranch;
             $this->line($this->runLocalCommand('git merge origin/' . $mergeBranch));
         } catch (ProcessFailedException $e) { // Catches local command failures
             $this->error("✘ A local git command failed:");
