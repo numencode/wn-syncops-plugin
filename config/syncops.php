@@ -38,11 +38,13 @@ return [
             | environment file for security.
             |
             */
-            'host'     => env('SYNCOPS_PRODUCTION_HOST', ''),     // Remote server host (IP or domain)
-            'port'     => env('SYNCOPS_PRODUCTION_PORT', 22),     // SSH port
-            'username' => env('SYNCOPS_PRODUCTION_USERNAME', ''), // SSH username
-            'password' => env('SYNCOPS_PRODUCTION_PASSWORD', ''), // Optional, not needed with private key
-            'key_path' => env('SYNCOPS_PRODUCTION_KEY', ''),      // Optional, path to private key file
+            'ssh' => [
+                'host'     => env('SYNCOPS_PRODUCTION_HOST', ''),     // Remote server host (IP or domain)
+                'port'     => env('SYNCOPS_PRODUCTION_PORT', 22),     // SSH port
+                'username' => env('SYNCOPS_PRODUCTION_USERNAME', ''), // SSH username
+                'password' => env('SYNCOPS_PRODUCTION_PASSWORD', ''), // Optional, not needed with private key
+                'key_path' => env('SYNCOPS_PRODUCTION_KEY', ''),      // Optional, path to private key file
+            ],
 
             /*
             |--------------------------------------------------------------------------

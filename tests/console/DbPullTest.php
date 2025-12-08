@@ -122,7 +122,9 @@ class DbPullTest extends PluginTestCase
         $localSql = $this->localSqlPath();
 
         $executor = $this->makeExecutor([
-            'path' => $remotePath,
+            'project' => [
+                'path' => $remotePath,
+            ],
             'database' => [
                 'username' => 'ruser',
                 'password' => 'rpass',
@@ -204,7 +206,9 @@ class DbPullTest extends PluginTestCase
         $localSql = $this->localSqlPath();
 
         $executor = $this->makeExecutor([
-            'path' => $remotePath,
+            'project'  => [
+                'path' => $remotePath,
+            ],
             'database' => [
                 'username' => 'ruser',
                 'password' => 'rpass',
@@ -267,7 +271,9 @@ class DbPullTest extends PluginTestCase
         $remoteDumpGz = $remotePath . '/' . $this->timestamp . '.sql.gz';
 
         $executor = $this->makeExecutor([
-            'path' => $remotePath,
+            'project'  => [
+                'path' => $remotePath,
+            ],
             'database' => [
                 'username' => 'ruser',
                 'password' => 'rpass',

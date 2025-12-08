@@ -19,10 +19,10 @@ class SftpExecutor
     public function connect(): SFTP
     {
         if (!$this->sftp) {
-            $this->sftp = new SFTP($this->config['host'], $this->config['port'] ?? 22);
+            $this->sftp = new SFTP($this->config['ssh']['host'], $this->config['ssh']['port'] ?? 22);
 
-            if (!$this->sftp->login($this->config['username'], $this->credentials)) {
-                throw new \RuntimeException("SFTP login failed for server: {$this->config['host']}");
+            if (!$this->sftp->login($this->config['ssh']['username'], $this->credentials)) {
+                throw new \RuntimeException("SFTP login failed for server: {$this->config['ssh']['host']}");
             }
         }
 

@@ -33,7 +33,7 @@ class DbPull extends Command
             $this->line("Connecting to remote server '{$serverName}'...");
             $executor = $this->createExecutor($serverName);
             $remoteConfig = $executor->config['database'];
-            $remoteTempFile = rtrim($executor->config['path'], '/') . '/' . $fileName . ($useGzip ? '.gz' : '');
+            $remoteTempFile = rtrim($executor->config['project']['path'], '/') . '/' . $fileName . ($useGzip ? '.gz' : '');
 
             $this->line("Creating remote database dump...");
             $dumpCommand = MysqlCommandBuilder::dump($remoteConfig, $remoteTempFile, $useGzip, $remoteConfig['tables']);

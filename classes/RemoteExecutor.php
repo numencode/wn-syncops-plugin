@@ -16,9 +16,9 @@ class RemoteExecutor
             throw new \RuntimeException("No config for server $server");
         }
 
-        $credentials = isset($this->config['password']) && empty($this->config['key_path'])
-            ? $this->config['password']
-            : PublicKeyLoader::load(file_get_contents($this->config['key_path']));
+        $credentials = isset($this->config['ssh']['password']) && empty($this->config['ssh']['key_path'])
+            ? $this->config['ssh']['password']
+            : PublicKeyLoader::load(file_get_contents($this->config['ssh']['key_path']));
 
         $this->ssh = new SshExecutor($server, $this->config, $credentials);
         $this->sftp = new SftpExecutor($server, $this->config, $credentials);
