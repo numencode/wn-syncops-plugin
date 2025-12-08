@@ -9,6 +9,6 @@ if (!function_exists('format_path')) {
      */
     function format_path(?string $path): ?string
     {
-        return $path ? rtrim($path, '/') . '/' : null;
+        return $path !== null && $path !== '' ? rtrim($path, '/') . '/' : null;
     }
 }
