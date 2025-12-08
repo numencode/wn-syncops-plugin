@@ -48,6 +48,7 @@ class RunsLocalCommandsTest extends PluginTestCase
     {
         try {
             $this->runner->runLocalCommand('invalid_command_zzz');
+            $this->fail('Expected ProcessFailedException was not thrown.');
         } catch (ProcessFailedException $e) {
             $this->assertStringContainsString('invalid_command_zzz', $e->getMessage());
         }
