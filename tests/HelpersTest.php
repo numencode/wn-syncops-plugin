@@ -73,4 +73,14 @@ class HelpersTest extends PluginTestCase
         $result = format_path('');
         $this->assertNull($result);
     }
+
+    /**
+     * Test function: format_path
+     * Ensure that a string "0" is treated as a valid path and not as empty.
+     */
+    public function testFormatPathWithZeroString(): void
+    {
+        $result = format_path('0');
+        $this->assertSame('0/', $result);
+    }
 }
