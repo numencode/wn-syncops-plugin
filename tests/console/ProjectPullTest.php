@@ -61,7 +61,7 @@ class ProjectPullTest extends PluginTestCase
         $ssh = Mockery::mock(SshExecutor::class);
         $executor = Mockery::mock(RemoteExecutor::class)->makePartial();
         $executor->ssh = $ssh;
-        $executor->config = ['branch_prod' => 'main'];
+        $executor->config['project']['branch_prod'] = 'main';
 
         return $executor;
     }

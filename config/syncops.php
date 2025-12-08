@@ -53,9 +53,11 @@ return [
             | used for deployment (production branch) and main development tracking.
             |
             */
-            'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),    // Project root path
-            'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'), // Production branch name
-            'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'), // Development branch name
+            'project' => [
+                'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH'), '/'),    // Project root path
+                'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'), // Production branch name
+                'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'), // Development branch name
+            ],
 
             /*
             |--------------------------------------------------------------------------
@@ -90,7 +92,7 @@ return [
            |
            */
             'database'    => [
-                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'), // Database name
+                'database' => env('SYNCOPS_PRODUCTION_DB_NAME'),     // Database name
                 'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'), // Database username
                 'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'), // Database password
                 'tables'   => [

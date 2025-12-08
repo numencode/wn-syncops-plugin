@@ -89,7 +89,7 @@ class ProjectDeploy extends Command
             ]);
         }
 
-        $branchMain = array_key_exists('branch_main', $config) ? $config['branch_main'] : 'main';
+        $branchMain = array_key_exists('branch_main', $config['project']) ? $config['project']['branch_main'] : 'main';
 
         // If branch_main is explicitly false => pull-only mode (no merge)
         if ($branchMain === false) {
@@ -128,7 +128,7 @@ class ProjectDeploy extends Command
         $this->newLine();
 
         $config = $executor->config;
-        $branchMain = $config['branch_main'] ?? 'main';
+        $branchMain = $config['project']['branch_main'] ?? 'main';
 
         $result = $executor->ssh->runAndPrint([
             ['git', 'fetch'],
@@ -142,7 +142,7 @@ class ProjectDeploy extends Command
         }
 
         // Push target branch if configured
-        $pushBranch = $config['branch'] ?? $config['branch_prod'] ?? null;
+        $pushBranch = $config['project']['branch_prod'] ?? $config['project']['branch_main'] ?? null;
         if (!empty($pushBranch)) {
             $executor->ssh->runAndPrint([['git', 'push', 'origin', $pushBranch]]);
             $this->newLine();
