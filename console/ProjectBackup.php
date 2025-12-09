@@ -10,11 +10,11 @@ class ProjectBackup extends Command
     use RunsLocalCommands;
 
     protected $signature = 'syncops:project-backup
-        {cloud?      : Cloud storage where the archive will be uploaded}
-        {--folder=       : The folder where the archive will be stored (default is "backup"; locally and/or on cloud storage)}
-        {--timestamp=    : Date format used for naming the archive file}
-        {--exclude=      : Comma-separated list of folders to exclude ("vendor" and "backup" dir are excluded by default)}
-        {--d|no-delete   : Do not delete the archive after upload to cloud storage}';
+        {cloud?        : Cloud storage where the archive will be uploaded}
+        {--folder=     : The folder where the archive will be stored (default is "backup"; locally and/or on cloud storage)}
+        {--timestamp=  : Date format used for naming the archive file}
+        {--exclude=    : Comma-separated list of folders to exclude ("vendor" and "backup" dir are excluded by default)}
+        {--d|no-delete : Do not delete the archive after upload to cloud storage}';
 
     protected $description = 'Create a compressed archive of project files and optionally upload it to cloud storage.';
 
@@ -41,7 +41,9 @@ class ProjectBackup extends Command
         $this->archiveFile = $backupDirName . '/' . $basename;
 
         $this->line("Creating project archive ({$this->archiveFile})...");
-        $this->runLocalCommand("tar -pczf {$this->archiveFile} {$exclude} .", 3600);
+        $archiveArg = escapeshellarg($this->archiveFile);
+        $tarCommand = "tar -pczf {$archiveArg} {$exclude} .";
+        $this->runLocalCommand($tarCommand, 3600);
         $this->comment("Project archive successfully created: {$this->archiveFile}");
         $this->newLine();
 
@@ -53,19 +55,24 @@ class ProjectBackup extends Command
             $localFullPath = base_path($this->archiveFile);
             $stream = fopen($localFullPath, 'r');
             $cloudStorage->put($cloudFolderPrefix . basename($this->archiveFile), $stream);
+
             if (is_resource($stream)) {
                 fclose($stream);
             }
-            $this->comment("Project archive successfully uploaded.");
+
+            $this->comment('Project archive successfully uploaded.');
             $this->newLine();
 
             if (!$this->option('no-delete')) {
-                $this->line("Deleting local project archive...");
+                $this->line('Deleting local project archive...');
+
                 File::delete($localFullPath);
+
                 if ($isBackupDirCreated) {
                     File::deleteDirectory($backupDirFull);
                 }
-                $this->comment("Local archive successfully deleted.");
+
+                $this->comment('Local archive successfully deleted.');
             } else {
                 // Archive is already in $backupDirName
                 $this->comment("Local archive preserved in: {$backupDirFull}");
@@ -78,7 +85,7 @@ class ProjectBackup extends Command
         }
 
         $this->newLine();
-        $this->info("✔ Project backup was successfully created.");
+        $this->info('✔ Project backup was successfully created.');
         return self::SUCCESS;
     }
 
@@ -86,7 +93,7 @@ class ProjectBackup extends Command
     {
         $defaults = [$backupDirName, 'storage/framework/cache', 'vendor'];
 
-        if ($excludeList) {
+        if ($excludeList !== null && $excludeList !== '') {
             $additional = array_map('trim', explode(',', $excludeList));
             $defaults = array_merge($defaults, $additional);
         }
@@ -94,8 +101,8 @@ class ProjectBackup extends Command
         $defaults = array_unique($defaults);
 
         return collect($defaults)
-            ->filter()
-            ->map(fn($item) => '--exclude=' . $item)
+            ->filter(static fn($item) => $item !== '')
+            ->map(static fn($item) => '--exclude=' . escapeshellarg($item))
             ->implode(' ');
     }
 }
