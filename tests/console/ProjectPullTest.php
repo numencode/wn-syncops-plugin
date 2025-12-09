@@ -31,11 +31,11 @@ class ProjectPullTest extends PluginTestCase
      */
     public static function setUpBeforeClass(): void
     {
-        parent::setUpBeforeClass();
-
         if (function_exists('app')) {
             self::bindFakeCommands();
         }
+
+        parent::setUpBeforeClass();
     }
 
     public function setUp(): void
