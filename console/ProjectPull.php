@@ -21,17 +21,20 @@ class ProjectPull extends Command
     {
         $this->newLine();
 
+        $server = $this->argument('server');
+
         try {
-            $this->line("Connecting to remote server '{$this->argument('server')}'...");
+            $this->line("Connecting to remote server '{$server}'...");
             $this->newLine();
-            $executor = new RemoteExecutor($this->argument('server'));
+
+            $executor = new RemoteExecutor($server);
 
             if ($executor->ssh->remoteIsClean()) {
-                $this->info("✔ No changes on the remote server.");
+                $this->info('✔ No changes on the remote server.');
                 return self::SUCCESS;
             }
 
-            $this->line("Changes detected on remote. Committing and pushing...");
+            $this->line('Changes detected on remote. Committing and pushing...');
             $commitMessage = $this->option('message') ?: 'Server changes';
 
             $remoteCommands = [
@@ -40,7 +43,7 @@ class ProjectPull extends Command
             ];
 
             if ($this->option('pull')) {
-                $this->line("Pulling new changes on the remote...");
+                $this->line('Pulling new changes on the remote (before pushing)...');
                 $remoteCommands[] = ['git', 'pull'];
             }
 
@@ -52,26 +55,33 @@ class ProjectPull extends Command
 
             if ($this->option('no-merge')) {
                 $this->newLine();
-                $this->info("✔ Remote changes were pushed. Skipping local merge as requested.");
+                $this->info('✔ Remote changes were pushed. Skipping local merge as requested.');
                 return self::SUCCESS;
             }
 
-            $this->line("Fetching and merging changes locally...");
+            $this->line('Fetching and merging changes locally...');
             $this->runLocalCommand('git fetch origin');
 
             $mergeBranch = $executor->config['project']['branch_prod'] ?? $currentRemoteBranch;
-            $this->line($this->runLocalCommand('git merge origin/' . $mergeBranch));
-        } catch (ProcessFailedException $e) { // Catches local command failures
-            $this->error("✘ A local git command failed:");
-            $this->error($e->getProcess()->getErrorOutput());
+            $mergeOutput = $this->runLocalCommand('git merge origin/' . $mergeBranch);
+
+            if ($mergeOutput !== '') {
+                $this->line($mergeOutput);
+            }
+        } catch (ProcessFailedException $e) { // local git failures
+            $this->newLine();
+            $this->error('✘ A local git command failed:');
+            $this->error($e->getProcess()->getErrorOutput() ?: $e->getMessage());
             return self::FAILURE;
-        } catch (\Exception $e) { // Catches remote executor failures or other issues
-            $this->error("✘ An error occurred on server '{$this->argument('server')}':");
+        } catch (\Throwable $e) { // remote executor failures or anything else
+            $this->newLine();
+            $this->error("✘ An error occurred on server '{$server}':");
             $this->error($e->getMessage());
             return self::FAILURE;
         }
 
-        $this->info("✔ Changes were successfully pulled and merged into the local project.");
+        $this->newLine();
+        $this->info('✔ Changes were successfully pulled and merged into the local project.');
         return self::SUCCESS;
     }
 }
