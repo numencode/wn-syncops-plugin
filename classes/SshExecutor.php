@@ -43,11 +43,12 @@ class SshExecutor
      * Execute command on the remote server.
      *
      * @param string $command A single command.
-     * @return string The trimmed output.
+     * @return string The output from the command.
      */
     public function exec(string $command): string
     {
         $this->connect();
+
         return $this->ssh->exec($command);
     }
 
@@ -111,9 +112,14 @@ class SshExecutor
      */
     public function runRawCommand(string $command): string
     {
+        if (!isset($this->config['project']['path'])) {
+            throw new \RuntimeException("Path is not defined for [{$this->config['ssh']['host']}]");
+        }
+
         $this->connect();
 
-        $fullCommand = "cd " . escapeshellarg($this->config['project']['path']) . " && {$command}";
+        $cwd = str_replace('~', '$HOME', $this->config['project']['path']);
+        $fullCommand = 'cd ' . escapeshellarg($cwd) . " && {$command}";
         $output = $this->ssh->exec($fullCommand);
 
         if ($this->ssh->getExitStatus() !== 0) {
@@ -141,7 +147,8 @@ class SshExecutor
 
         $escapedParts = array_map('escapeshellarg', $commandParts);
         $safeCommand = implode(' ', $escapedParts);
-        $fullCommand = "cd " . escapeshellarg(str_replace('~', '$HOME', $cwd)) . " && {$safeCommand}";
+        $fullCwd = str_replace('~', '$HOME', $cwd);
+        $fullCommand = 'cd ' . escapeshellarg($fullCwd) . " && {$safeCommand}";
 
         $output = $this->ssh->exec($fullCommand);
 
