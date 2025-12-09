@@ -56,10 +56,13 @@ class ProjectBackupTest extends PluginTestCase
             return $this->prepareExcludeList(null, 'backup');
         })->call($command);
 
-        $this->assertSame(
-            '--exclude=backup --exclude=storage/framework/cache --exclude=vendor',
-            $result
-        );
+        $expected = implode(' ', [
+            '--exclude=' . escapeshellarg('backup'),
+            '--exclude=' . escapeshellarg('storage/framework/cache'),
+            '--exclude=' . escapeshellarg('vendor'),
+        ]);
+
+        $this->assertSame($expected, $result);
     }
 
     /**
@@ -75,10 +78,15 @@ class ProjectBackupTest extends PluginTestCase
             return $this->prepareExcludeList('node_modules, .git , backup', 'backup');
         })->call($command);
 
-        $this->assertSame(
-            '--exclude=backup --exclude=storage/framework/cache --exclude=vendor --exclude=node_modules --exclude=.git',
-            $result
-        );
+        $expected = implode(' ', [
+            '--exclude=' . escapeshellarg('backup'),
+            '--exclude=' . escapeshellarg('storage/framework/cache'),
+            '--exclude=' . escapeshellarg('vendor'),
+            '--exclude=' . escapeshellarg('node_modules'),
+            '--exclude=' . escapeshellarg('.git'),
+        ]);
+
+        $this->assertSame($expected, $result);
     }
 
     /**
@@ -110,11 +118,15 @@ class ProjectBackupTest extends PluginTestCase
         $command->shouldReceive('prepareExcludeList')
             ->once()
             ->with(null, 'backup')
-            ->andReturn('--exclude=backup --exclude=storage/framework/cache --exclude=vendor');
+            ->andReturn(implode(' ', [
+                '--exclude=' . escapeshellarg('backup'),
+                '--exclude=' . escapeshellarg('storage/framework/cache'),
+                '--exclude=' . escapeshellarg('vendor'),
+            ]));
 
         $command->shouldReceive('runLocalCommand')
             ->once()
-            ->with(Mockery::on(fn($cmd) => str_starts_with($cmd, 'tar -pczf backup/')), 3600);
+            ->with(Mockery::on(fn($cmd) => str_starts_with($cmd, 'tar -pczf ')), 3600);
 
         $command->shouldReceive('newLine')->atLeast()->once();
         $command->shouldReceive('line')->atLeast()->once();
@@ -138,7 +150,10 @@ class ProjectBackupTest extends PluginTestCase
             $this->archiveFile = $backupDirName . '/' . $basename;
 
             $this->line("Creating project archive ({$this->archiveFile})...");
-            $this->runLocalCommand("tar -pczf {$this->archiveFile} {$exclude} .", 3600);
+
+            $archiveArg = escapeshellarg($this->archiveFile);
+            $this->runLocalCommand("tar -pczf {$archiveArg} {$exclude} .", 3600);
+
             $this->comment("Project archive successfully created: {$this->archiveFile}");
             $this->newLine();
 
@@ -183,7 +198,7 @@ class ProjectBackupTest extends PluginTestCase
         // simulating only the upload + cleanup portion.
         File::shouldReceive('fromClass')->andReturnSelf();
 
-        $command->shouldReceive('prepareExcludeList')->zeroOrMoreTimes()->andReturn('--exclude=backup');
+        $command->shouldReceive('prepareExcludeList')->zeroOrMoreTimes()->andReturn('--exclude=' . escapeshellarg('backup'));
         $command->shouldReceive('runLocalCommand')->zeroOrMoreTimes()->andReturnTrue();
 
         // Mock cloud storage disk
@@ -254,7 +269,7 @@ class ProjectBackupTest extends PluginTestCase
 
         File::shouldReceive('fromClass')->andReturnSelf();
 
-        $command->shouldReceive('prepareExcludeList')->zeroOrMoreTimes()->andReturn('--exclude=backup');
+        $command->shouldReceive('prepareExcludeList')->zeroOrMoreTimes()->andReturn('--exclude=' . escapeshellarg('backup'));
         $command->shouldReceive('runLocalCommand')->zeroOrMoreTimes()->andReturnTrue();
 
         $disk = Mockery::mock();
