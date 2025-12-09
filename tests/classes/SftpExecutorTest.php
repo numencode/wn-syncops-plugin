@@ -16,7 +16,6 @@ class SftpExecutorTest extends PluginTestCase
      */
     protected static function bindFakeCommands(): void
     {
-        // Avoid resolving real commands; we just need placeholders.
         $fake = fn () => Mockery::mock(\Illuminate\Console\Command::class);
 
         app()->instance('command.syncops.db_pull', $fake());
@@ -113,11 +112,15 @@ class SftpExecutorTest extends PluginTestCase
      */
     public function testConnectFailureThrowsException(): void
     {
-        $executor = new SftpExecutor($this->server, [
-            'host'     => 'nonexistent-host.invalid',
-            'port'     => 22,
-            'username' => 'user',
-        ], 'wrong-password');
+        $badConfig = [
+            'ssh' => [
+                'host'     => 'nonexistent-host.invalid',
+                'port'     => 22,
+                'username' => 'user',
+            ],
+        ];
+
+        $executor = new SftpExecutor($this->server, $badConfig, 'wrong-password');
 
         // phpseclib may throw different Throwable types depending on environment,
         // so we just require that *something* fails loudly.
@@ -140,7 +143,7 @@ class SftpExecutorTest extends PluginTestCase
         $sftpMock = Mockery::mock(SFTP::class);
         $sftpMock->shouldReceive('put')
             ->once()
-            ->with($remoteFile, 'content')
+            ->with($remoteFile, Mockery::on(fn ($arg) => is_resource($arg)))
             ->andReturnTrue();
 
         $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])
@@ -170,7 +173,7 @@ class SftpExecutorTest extends PluginTestCase
         $sftpMock = Mockery::mock(SFTP::class);
         $sftpMock->shouldReceive('put')
             ->once()
-            ->with($remoteFile, 'data')
+            ->with($remoteFile, Mockery::on(fn ($arg) => is_resource($arg)))
             ->andReturnFalse();
 
         $executor = Mockery::mock(SftpExecutor::class, [$this->server, $this->config, $this->credentials])

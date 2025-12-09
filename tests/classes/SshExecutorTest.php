@@ -55,7 +55,8 @@ class SshExecutorTest extends PluginTestCase
             'username' => 'user',
         ];
 
-        $this->config['project']['path'] = '/var/www/html'; // Required for runCommands/runAndGet/runAndPrint/runRawCommand
+        // Required for runCommands/runAndGet/runAndPrint/runRawCommand
+        $this->config['project']['path'] = '/var/www/html';
     }
 
     public function tearDown(): void
@@ -349,5 +350,22 @@ class SshExecutorTest extends PluginTestCase
         );
 
         $executor->runRawCommand($rawCommand);
+    }
+
+    /**
+     * Test function: runRawCommand
+     * Test that runRawCommand() throws an exception when the 'path' config is missing.
+     */
+    public function testRunRawCommandMissingPathThrowsException(): void
+    {
+        $config = $this->config;
+        unset($config['project']['path']);
+
+        $executor = new SshExecutor($this->server, $config, $this->credentials);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Path is not defined/');
+
+        $executor->runRawCommand('echo test');
     }
 }

@@ -23,7 +23,7 @@ class RemoteExecutorTest extends PluginTestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('No config for server invalid_server');
 
-        // Use empty array (null would cause TypeError before our check)
+        // Explicitly set an empty array to simulate an invalid configuration.
         config()->set('syncops.connections.invalid_server', []);
 
         new RemoteExecutor('invalid_server');
@@ -45,7 +45,7 @@ class RemoteExecutorTest extends PluginTestCase
             'key_path' => '',
         ]);
 
-        // Mock PublicKeyLoader to ensure it's not used
+        // Mock PublicKeyLoader to ensure it's not used when password is present
         $mockKeyLoader = Mockery::mock('alias:phpseclib3\Crypt\PublicKeyLoader');
         $mockKeyLoader->shouldNotReceive('load');
 

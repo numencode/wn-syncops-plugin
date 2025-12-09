@@ -1,5 +1,6 @@
 <?php namespace NumenCode\SyncOps\Classes;
 
+use RuntimeException;
 use phpseclib3\Net\SFTP;
 
 class SftpExecutor
@@ -19,10 +20,24 @@ class SftpExecutor
     public function connect(): SFTP
     {
         if (!$this->sftp) {
-            $this->sftp = new SFTP($this->config['ssh']['host'], $this->config['ssh']['port'] ?? 22);
+            $sshConfig = $this->config['ssh'] ?? null;
 
-            if (!$this->sftp->login($this->config['ssh']['username'], $this->credentials)) {
-                throw new \RuntimeException("SFTP login failed for server: {$this->config['ssh']['host']}");
+            if (!is_array($sshConfig)) {
+                throw new RuntimeException("Missing SSH config for server {$this->server}");
+            }
+
+            $host = $sshConfig['host'] ?? null;
+            $port = $sshConfig['port'] ?? 22;
+            $username = $sshConfig['username'] ?? null;
+
+            if (!$host || !$username) {
+                throw new RuntimeException("Incomplete SSH config for server {$this->server}");
+            }
+
+            $this->sftp = new SFTP($host, $port);
+
+            if (!$this->sftp->login($username, $this->credentials)) {
+                throw new RuntimeException("SFTP login failed for server: {$host}");
             }
         }
 
@@ -33,8 +48,24 @@ class SftpExecutor
     {
         $sftp = $this->connect();
 
-        if (!$sftp->put($remoteFile, file_get_contents($localFile))) {
-            throw new \RuntimeException("[$this->server] Failed to upload file: $localFile -> $remoteFile");
+        if (!is_file($localFile) || !is_readable($localFile)) {
+            throw new RuntimeException("[$this->server] Local file not found or unreadable: {$localFile}");
+        }
+
+        $stream = fopen($localFile, 'r');
+
+        if ($stream === false) {
+            throw new RuntimeException("[$this->server] Unable to open local file: {$localFile}");
+        }
+
+        try {
+            if (!$sftp->put($remoteFile, $stream)) {
+                throw new RuntimeException("[$this->server] Failed to upload file: {$localFile} -> {$remoteFile}");
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 
@@ -43,7 +74,7 @@ class SftpExecutor
         $sftp = $this->connect();
 
         if (!$sftp->get($remoteFile, $localFile)) {
-            throw new \RuntimeException("[$this->server] Failed to download file: $remoteFile");
+            throw new RuntimeException("[$this->server] Failed to download file: {$remoteFile}");
         }
     }
 
@@ -52,6 +83,7 @@ class SftpExecutor
      *
      * Returns an array of full remote file paths (files only).
      * - Skips any path containing '/thumb/'.
+     * - Skips any path containing '/resized/'.
      * - Keeps '.gitignore' files, skips other dotfiles.
      *
      * @param string $path Absolute or relative remote directory path
@@ -120,7 +152,7 @@ class SftpExecutor
             return null;
         }
 
-        return (int)$size;
+        return (int) $size;
     }
 
     /**
