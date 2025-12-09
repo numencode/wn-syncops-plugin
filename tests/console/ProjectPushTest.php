@@ -71,10 +71,11 @@ class ProjectPushTest extends PluginTestCase
             ->with('git add --all')
             ->andReturn('');
 
-        // Commit with exact quoted message
+        // Commit with escaped message
+        $expectedCommitCommand = 'git commit -m ' . escapeshellarg($message);
         $command->shouldReceive('runLocalCommand')
             ->once()
-            ->with('git commit -m "' . $message . '"')
+            ->with($expectedCommitCommand)
             ->andReturn('');
 
         // Push
@@ -119,10 +120,59 @@ class ProjectPushTest extends PluginTestCase
             ->with('git add --all')
             ->andReturn('');
 
-        // Commit with default message
+        // Commit with default message, escaped
+        $expectedCommitCommand = 'git commit -m ' . escapeshellarg('Server changes');
         $command->shouldReceive('runLocalCommand')
             ->once()
-            ->with('git commit -m "Server changes"')
+            ->with($expectedCommitCommand)
+            ->andReturn('');
+
+        // Push
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git push')
+            ->andReturn('');
+
+        $command->shouldReceive('newLine')->atLeast()->once();
+        $command->shouldReceive('line')->atLeast()->once();
+        $command->shouldReceive('warn')->atLeast()->once();
+        $command->shouldReceive('info')->once()->with(Mockery::pattern('/successfully pushed/i'));
+
+        $result = $command->handle();
+
+        $this->assertSame(ProjectPush::SUCCESS, $result);
+    }
+
+    /**
+     * Test function: handle
+     * When there are changes and --message option is provided empty,
+     * the command should use the default commit message "Server changes",
+     * then commit, push, and return SUCCESS.
+     */
+    public function testHandleWithEmptyMessageUsesDefaultCommitMessage(): void
+    {
+        $command = Mockery::mock(ProjectPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        // Option explicitly provided but empty
+        $command->shouldReceive('option')->with('message')->andReturn('');
+
+        // Status indicates changes
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git status --porcelain')
+            ->andReturn(" M file.txt");
+
+        // Add all
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git add --all')
+            ->andReturn('');
+
+        // Should still use default message
+        $expectedCommitCommand = 'git commit -m ' . escapeshellarg('Server changes');
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with($expectedCommitCommand)
             ->andReturn('');
 
         // Push
@@ -159,10 +209,16 @@ class ProjectPushTest extends PluginTestCase
         $command->shouldReceive('option')->with('message')->andReturnNull(); // use default message
 
         // Allow add and commit to pass
-        $command->shouldReceive('runLocalCommand')->once()->with('git add --all')->andReturn('');
-        $command->shouldReceive('runLocalCommand')->once()->with(Mockery::on(function ($arg) {
-            return is_string($arg) && strpos($arg, 'git commit -m "Server changes"') === 0;
-        }))->andReturn('');
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with('git add --all')
+            ->andReturn('');
+
+        $expectedCommitCommand = 'git commit -m ' . escapeshellarg('Server changes');
+        $command->shouldReceive('runLocalCommand')
+            ->once()
+            ->with($expectedCommitCommand)
+            ->andReturn('');
 
         // Fail on push with a generic exception
         $command->shouldReceive('runLocalCommand')

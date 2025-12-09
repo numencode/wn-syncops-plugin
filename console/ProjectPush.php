@@ -18,30 +18,36 @@ class ProjectPush extends Command
         $this->newLine();
 
         try {
-            $this->line("Checking for local changes...");
+            $this->line('Checking for local changes...');
             $status = $this->runLocalCommand('git status --porcelain');
 
-            if (empty($status)) {
+            if ($status === '' || $status === null) {
                 $this->newLine();
-                $this->info("✔ No changes to commit. Everything is up-to-date.");
+                $this->info('✔ No changes to commit. Everything is up-to-date.');
                 return self::SUCCESS;
             }
 
-            $this->warn("Changes detected. Proceeding with commit and push...");
-            $commitMessage = $this->option('message') ?: 'Server changes';
+            $this->warn('Changes detected. Proceeding with commit and push...');
+
+            $commitMessage = $this->option('message');
+            if ($commitMessage === null || $commitMessage === '') {
+                $commitMessage = 'Server changes';
+            }
 
             $this->newLine();
-            $this->line("Adding all changes...");
+            $this->line('Adding all changes...');
             $this->runLocalCommand('git add --all');
 
             $this->line("Committing with message: '{$commitMessage}'");
-            $this->runLocalCommand('git commit -m "' . $commitMessage . '"');
 
-            $this->line("Pushing changes to the remote repository...");
+            $commitCommand = 'git commit -m ' . escapeshellarg($commitMessage);
+            $this->runLocalCommand($commitCommand);
+
+            $this->line('Pushing changes to the remote repository...');
             $this->runLocalCommand('git push');
         } catch (\Throwable $e) {
             $this->newLine();
-            $this->error("✘ An error occurred during the git process:");
+            $this->error('✘ An error occurred during the git process:');
 
             if ($e instanceof ProcessFailedException) {
                 $this->error($e->getProcess()->getErrorOutput());
@@ -53,7 +59,7 @@ class ProjectPush extends Command
         }
 
         $this->newLine();
-        $this->info("✔ Project changes were successfully pushed.");
+        $this->info('✔ Project changes were successfully pushed.');
         return self::SUCCESS;
     }
 }
