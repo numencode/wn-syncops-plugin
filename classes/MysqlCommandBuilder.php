@@ -1,4 +1,4 @@
-<?php namespace NumenCode\SyncOps\Support;
+<?php namespace NumenCode\SyncOps\Classes;
 
 class MysqlCommandBuilder
 {

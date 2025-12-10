@@ -4,7 +4,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use NumenCode\SyncOps\Classes\RemoteExecutor;
 use NumenCode\SyncOps\Traits\RunsLocalCommands;
-use NumenCode\SyncOps\Support\MysqlCommandBuilder;
+use NumenCode\SyncOps\Classes\MysqlCommandBuilder;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class DbPull extends Command
