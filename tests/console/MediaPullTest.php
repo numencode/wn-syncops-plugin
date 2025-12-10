@@ -49,12 +49,11 @@ class MediaPullTest extends PluginTestCase
     {
         parent::setUp();
 
-        // Important: bind fake commands AFTER parent::setUp(),
-        // when the application container is fully bootstrapped.
+        // Bind fake commands after app is bootstrapped
         $this->registerFakeCommands();
 
         $this->localRoot = storage_path('app');
-        $this->testDir = $this->localRoot . DIRECTORY_SEPARATOR . 'media-pull-tests';
+        $this->testDir   = $this->localRoot . DIRECTORY_SEPARATOR . 'media-pull-tests';
 
         $this->cleanupTestDir();
     }
@@ -121,88 +120,9 @@ class MediaPullTest extends PluginTestCase
     }
 
     /**
-     * Helper: simulate the handle() method but with an injected RemoteExecutor.
-     * This avoids needing to mock "new RemoteExecutor()" directly.
-     */
-    protected function simulateHandle(MediaPull $command, RemoteExecutor $executor, string $serverName, bool $noOverwrite): int
-    {
-        return (function () use ($executor, $serverName, $noOverwrite) {
-            $this->newLine();
-
-            $this->line("Connecting to remote server '{$serverName}'...");
-
-            $remotePath = rtrim($executor->config['project']['path'], '/') . '/storage/app';
-            $localPath = storage_path('app');
-
-            $this->line("Fetching file list from remote server...");
-            $files = $executor->sftp->listFilesRecursively($remotePath);
-
-            $this->newLine();
-
-            if (empty($files)) {
-                $this->info("✔ No media files found on remote server.");
-                return self::SUCCESS;
-            }
-
-            $this->line("Downloading " . count($files) . " media files...");
-
-            $bar = $this->output
-                ? $this->output->createProgressBar(count($files))
-                : null;
-
-            foreach ($files as $remoteFile) {
-                $relativePath = ltrim(str_replace($remotePath, '', $remoteFile), '/');
-                $localFile = $localPath . '/' . $relativePath;
-
-                // Ensure directory exists
-                if (!is_dir(dirname($localFile))) {
-                    mkdir(dirname($localFile), 0777, true);
-                }
-
-                // Skip if file exists and we shouldn't overwrite
-                if ($noOverwrite && file_exists($localFile)) {
-                    if ($bar) {
-                        $bar->advance();
-                    }
-                    continue;
-                }
-
-                // Skip if same size
-                if (file_exists($localFile)) {
-                    $remoteSize = $executor->sftp->filesizeRemote($remoteFile);
-                    $localSize = filesize($localFile);
-
-                    if ($remoteSize === $localSize) {
-                        if ($bar) {
-                            $bar->advance();
-                        }
-                        continue;
-                    }
-                }
-
-                $executor->sftp->download($remoteFile, $localFile);
-
-                if ($bar) {
-                    $bar->advance();
-                }
-            }
-
-            if ($bar) {
-                $bar->finish();
-            }
-
-            $this->newLine(2);
-            $this->info("✔ Media files successfully synced from remote server.");
-
-            return self::SUCCESS;
-        })->call($command);
-    }
-
-    /**
      * Test function: handle
-     * When the remote SFTP listing returns no files, the simulated handle flow
-     * should report "No media files found" and return SUCCESS without performing
-     * any downloads.
+     * When the remote SFTP listing returns no files, handle() should report
+     * "No media files found" and return SUCCESS without performing any downloads.
      */
     public function testHandleNoRemoteFilesReturnsSuccess(): void
     {
@@ -218,21 +138,29 @@ class MediaPullTest extends PluginTestCase
 
         $cmd = Mockery::mock(MediaPull::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
+        $cmd->shouldReceive('argument')->with('server')->andReturn('media-prod');
+        $cmd->shouldReceive('option')->with('no-overwrite')->andReturn(false);
+
+        $cmd->shouldReceive('createExecutor')
+            ->once()
+            ->with('media-prod')
+            ->andReturn($executor);
+
         $cmd->shouldReceive('newLine')->atLeast()->once();
         $cmd->shouldReceive('line')->atLeast()->once();
         $cmd->shouldReceive('info')->once()->with(Mockery::pattern('/No media files found/i'));
 
         $this->attachOutputMock($cmd, null);
 
-        $result = $this->simulateHandle($cmd, $executor, 'media-prod', false);
+        $result = $cmd->handle();
 
         $this->assertSame(MediaPull::SUCCESS, $result);
     }
 
     /**
      * Test function: handle
-     * When remote files exist and overwrite is allowed, the simulated handle flow
-     * should create local directories as needed, download each file, and return SUCCESS.
+     * When remote files exist and overwrite is allowed, handle() should
+     * create local directories as needed, download each file, and return SUCCESS.
      */
     public function testHandleDownloadsAllFilesWhenOverwriteAllowed(): void
     {
@@ -269,13 +197,21 @@ class MediaPullTest extends PluginTestCase
 
         $cmd = Mockery::mock(MediaPull::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
+        $cmd->shouldReceive('argument')->with('server')->andReturn('media-prod');
+        $cmd->shouldReceive('option')->with('no-overwrite')->andReturn(false);
+
+        $cmd->shouldReceive('createExecutor')
+            ->once()
+            ->with('media-prod')
+            ->andReturn($executor);
+
         $cmd->shouldReceive('newLine')->atLeast()->once();
         $cmd->shouldReceive('line')->atLeast()->once();
         $cmd->shouldReceive('info')->once()->with(Mockery::pattern('/successfully synced/i'));
 
         $this->attachOutputMock($cmd, count($remoteFiles));
 
-        $result = $this->simulateHandle($cmd, $executor, 'media-prod', false);
+        $result = $cmd->handle();
 
         $this->assertSame(MediaPull::SUCCESS, $result);
 
@@ -289,8 +225,8 @@ class MediaPullTest extends PluginTestCase
     /**
      * Test function: handle
      * When --no-overwrite is in effect and a local file already exists,
-     * the simulated handle flow should skip downloading that file and preserve
-     * the original local contents.
+     * handle() should skip downloading that file and preserve the original
+     * local contents.
      */
     public function testHandleSkipsExistingFilesWhenNoOverwrite(): void
     {
@@ -319,13 +255,21 @@ class MediaPullTest extends PluginTestCase
 
         $cmd = Mockery::mock(MediaPull::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
+        $cmd->shouldReceive('argument')->with('server')->andReturn('media-prod');
+        $cmd->shouldReceive('option')->with('no-overwrite')->andReturn(true);
+
+        $cmd->shouldReceive('createExecutor')
+            ->once()
+            ->with('media-prod')
+            ->andReturn($executor);
+
         $cmd->shouldReceive('newLine')->atLeast()->once();
         $cmd->shouldReceive('line')->atLeast()->once();
         $cmd->shouldReceive('info')->once()->with(Mockery::pattern('/successfully synced/i'));
 
         $this->attachOutputMock($cmd, 1);
 
-        $result = $this->simulateHandle($cmd, $executor, 'media-prod', true);
+        $result = $cmd->handle();
 
         $this->assertSame(MediaPull::SUCCESS, $result);
         $this->assertFileExists($localFile);
@@ -334,9 +278,9 @@ class MediaPullTest extends PluginTestCase
 
     /**
      * Test function: handle
-     * When local files exist and remote size matches the local size, the simulated
-     * handle flow should skip those files. If the sizes differ, it should download
-     * only the mismatched files and overwrite them.
+     * When local files exist and remote size matches the local size, handle()
+     * should skip those files. If the sizes differ, it should download only the
+     * mismatched files and overwrite them.
      */
     public function testHandleSkipsFilesWithSameSizeAndDownloadsMismatched(): void
     {
@@ -388,13 +332,21 @@ class MediaPullTest extends PluginTestCase
 
         $cmd = Mockery::mock(MediaPull::class)->makePartial()->shouldAllowMockingProtectedMethods();
 
+        $cmd->shouldReceive('argument')->with('server')->andReturn('media-prod');
+        $cmd->shouldReceive('option')->with('no-overwrite')->andReturn(false);
+
+        $cmd->shouldReceive('createExecutor')
+            ->once()
+            ->with('media-prod')
+            ->andReturn($executor);
+
         $cmd->shouldReceive('newLine')->atLeast()->once();
         $cmd->shouldReceive('line')->atLeast()->once();
         $cmd->shouldReceive('info')->once()->with(Mockery::pattern('/successfully synced/i'));
 
         $this->attachOutputMock($cmd, 2);
 
-        $result = $this->simulateHandle($cmd, $executor, 'media-prod', false);
+        $result = $cmd->handle();
 
         $this->assertSame(MediaPull::SUCCESS, $result);
 
