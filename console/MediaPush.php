@@ -27,62 +27,84 @@ class MediaPush extends Command
             return self::FAILURE;
         }
 
-        $files = array_filter(Storage::allFiles(), function ($file) {
-            return !str_starts_with(basename($file), '.') && stripos($file, '/thumb/') === false;
-        });
+        $log = (bool) $this->option('log');
+        $dryRun = (bool) $this->option('dry-run');
 
-        $fileCount = count($files);
+        try {
+            // Filter files: skip dotfiles and anything under /thumb/
+            $files = array_filter(Storage::allFiles(), function (string $file): bool {
+                return !str_starts_with(basename($file), '.')
+                    && stripos($file, '/thumb/') === false;
+            });
 
-        if ($fileCount === 0) {
-            $this->info("✔ No media files found to upload.");
-            return self::SUCCESS;
-        }
+            $fileCount = count($files);
 
-        if ($this->option('dry-run')) {
-            $this->dryRun($files);
-            return self::SUCCESS;
-        }
-
-        $this->line("Uploading {$fileCount} media file(s) to cloud storage '{$cloud}'...");
-
-        if (!$this->option('log')) {
-            $bar = $this->output->createProgressBar($fileCount);
-        }
-
-        foreach ($files as $file) {
-            if (!$this->option('log')) {
-                $bar->advance();
+            if ($fileCount === 0) {
+                $this->info('✔ No media files found to upload.');
+                return self::SUCCESS;
             }
 
-            $cloudPath = $folder . $file;
+            if ($dryRun) {
+                $this->dryRun($files);
+                return self::SUCCESS;
+            }
 
-            if ($cloudStorage->exists($cloudPath) && $cloudStorage->size($cloudPath) === Storage::size($file)) {
-                if ($this->option('log')) {
-                    $this->line("File already exists: {$file}");
+            $this->line("Uploading {$fileCount} media file(s) to cloud storage '{$cloud}'...");
+
+            $bar = null;
+
+            if (!$log) {
+                $bar = $this->output->createProgressBar($fileCount);
+            }
+
+            foreach ($files as $file) {
+                if (!$log && $bar) {
+                    $bar->advance();
                 }
-                continue;
+
+                $cloudPath = $folder . $file;
+
+                // Skip upload if remote file exists with identical size
+                if ($cloudStorage->exists($cloudPath) && $cloudStorage->size($cloudPath) === Storage::size($file)) {
+                    if ($log) {
+                        $this->line("File already exists: {$file}");
+                    }
+
+                    continue;
+                }
+
+                $cloudStorage->put($cloudPath, Storage::get($file));
+
+                if ($log) {
+                    $this->comment("File successfully uploaded: {$file}");
+                }
             }
 
-            $cloudStorage->put($cloudPath, Storage::get($file));
-
-            if ($this->option('log')) {
-                $this->comment("File successfully uploaded: {$file}");
+            if (!$log && $bar) {
+                $bar->finish();
+                $this->newLine();
             }
-        }
 
-        if (!$this->option('log')) {
-            $bar->finish();
             $this->newLine();
+            $this->info('✔ All media files have been successfully uploaded.');
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->newLine();
+            $this->error("✘ An error occurred while uploading media files to '{$cloud}':");
+            $this->error($e->getMessage());
+            return self::FAILURE;
         }
-
-        $this->newLine();
-        $this->info("✔ All media files have been successfully uploaded.");
-        return self::SUCCESS;
     }
 
-    protected function dryRun(array $files)
+    /**
+     * Simulate an upload by listing which files would be processed.
+     *
+     * @param string[] $files
+     * @return void
+     */
+    protected function dryRun(array $files): void
     {
-        $this->comment("Dry run: The following files (" . count($files) . ") would be uploaded:");
+        $this->comment("Dry run: The following files (" . count($files) . ') would be uploaded:');
 
         foreach ($files as $file) {
             $this->line("- {$file}");
