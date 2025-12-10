@@ -133,10 +133,10 @@ they are only required in your **local/dev environment** to allow SyncOps to con
 | [syncops:media-pull](#media-pull)         | Download media files from the remote server<br>via SFTP into local storage.                                                 |
 | [syncops:media-push](#media-push)         | Back up all media files<br>to the specified cloud storage.                                                                  |
 | [syncops:project-backup](#project-backup) | Create a compressed archive of project files<br>and optionally upload it to cloud storage.                                  |
-| [syncops:project-deploy](#project-deploy) | Deploy the project to a remote server via Git, with optional<br>cache clearing, Composer install, and migrations.              |
+| [syncops:project-deploy](#project-deploy) | Deploy the project to a remote server via Git, with optional<br>cache clearing, Composer install, and migrations.           |
 | [syncops:project-pull](#project-pull)     | Commit untracked changes on the remote server, push them<br>to the origin, and optionally merge them into the local branch. |
 | [syncops:project-push](#project-push)     | Add and commit project changes locally<br>and push them to the remote repository.                                           |
-
+| [syncops:remote-artisan](#remote-artisan) | Execute a `php artisan` command on a remote server<br>and stream the output back to your local console.                     |
 ---
 
 <a name="db-pull"></a>
@@ -562,6 +562,62 @@ By default, this will commit with the message **"Server changes"** and push them
 | Option       | Description                                                                                                                                                                                                            |
 |--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--message=` | Specify a custom commit message for the changes. If this option is not used, the default commit message is **"Server changes"**.<br>Example: `php artisan syncops:project-push --message="Updated content and layout"` |
+
+---
+
+<a name="remote-artisan"></a>
+### Command: `syncops:remote-artisan`
+
+Run a `php artisan` command **directly on a remote server** via SSH and stream the output back to your local console.
+
+This is especially useful when you need to quickly run framework tasks on production or staging environments – such as
+clearing caches, running migrations, or inspecting configuration – without manually SSH’ing into the server.
+
+#### Usage
+
+```bash
+php artisan syncops:remote-artisan {server} {artisanCommand*}
+````
+
+#### Examples
+
+```bash
+# Clear cache on the "production" server
+php artisan syncops:remote-artisan production cache:clear
+
+# Run migrations on the remote server
+php artisan syncops:remote-artisan production migrate --force
+
+# Show the remote environment
+php artisan syncops:remote-artisan production env
+```
+
+Everything after `{server}` is forwarded directly to `php artisan` on the remote machine.
+
+#### Configuration
+
+This command uses the same **SSH** and **project settings**, defined in `config/syncops.php` under `connections`.
+
+**For the given `{server}`:**
+
+* `ssh.host`, `ssh.port`, `ssh.username` (and `password` / `key_path`) must be valid.
+* `project.path` must point to the root of your Winter CMS project on the remote server.
+* Running `php artisan` from within `project.path` on the remote server must work.
+
+#### Arguments
+
+| Argument          | Description                                                                                                                                            |
+|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `server`          | The name of the remote server (as defined in `config/syncops.php`).<br>Example: `php artisan syncops:remote-artisan production cache:clear`            |
+| `artisanCommand*` | The artisan sub-command and its arguments/options to run remotely, **without** the leading `php artisan`.<br>Example: `migrate --force`, `cache:clear` |
+
+#### Behavior
+
+* The command connects to the configured remote server via SSH.
+* It changes directory to the configured `project.path`.
+* It executes `php artisan {artisanCommand...}` on the remote server.
+* The remote output is streamed back to your local console.
+* If the SSH connection or the remote command fails, the command will print an error and return a non-zero exit code.
 
 ---
 
