@@ -5,6 +5,7 @@ use Carbon\Carbon;
 use PluginTestCase;
 use NumenCode\SyncOps\Console\DbPush;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class DbPushTest extends PluginTestCase
 {
@@ -216,5 +217,91 @@ class DbPushTest extends PluginTestCase
         // File should exist in the target folder and not in the root
         $this->assertFileExists($expectedKey);
         $this->assertFileDoesNotExist($expectedFile);
+    }
+
+    /**
+     * Test function: handle
+     * If the configured cloud disk does not exist or is not configured,
+     * the command should:
+     *   - still create the local dump file,
+     *   - report a clear configuration error,
+     *   - return FAILURE without deleting the local dump.
+     */
+    public function testHandleFailsWhenCloudDiskIsNotConfigured(): void
+    {
+        $cmd = Mockery::mock(DbPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $cmd->shouldReceive('option')->with('folder')->andReturn('backups/');
+        $cmd->shouldReceive('option')->with('timestamp')->andReturnNull();
+        $cmd->shouldReceive('option')->with('no-gzip')->andReturnNull();
+        $cmd->shouldReceive('option')->with('no-delete')->andReturnNull();
+        $cmd->shouldReceive('argument')->with('cloud')->andReturn('missing');
+
+        $expectedFile = '2024-01-02_03_04_05.sql.gz';
+
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db | gzip > {$expectedFile}")
+            ->andReturnUsing(function () use ($expectedFile) {
+                file_put_contents($expectedFile, 'dump');
+                return '';
+            });
+
+        Storage::shouldReceive('disk')
+            ->once()
+            ->with('missing')
+            ->andThrow(new \InvalidArgumentException('Disk [missing] does not exist.'));
+
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
+        $cmd->shouldReceive('error')
+            ->once()
+            ->with(Mockery::pattern('/not configured/i'));
+
+        $result = $cmd->handle();
+
+        $this->assertSame(DbPush::FAILURE, $result);
+        // Local dump should still exist since we failed before any cleanup
+        $this->assertFileExists($expectedFile);
+    }
+
+    /**
+     * Test function: handle
+     * If mysqldump (run via runLocalCommand) fails with a ProcessFailedException,
+     * the command should catch it, report the failure, and return FAILURE
+     * without attempting any cloud upload or local file cleanup.
+     */
+    public function testHandleReportsProcessFailedExceptionAndReturnsFailure(): void
+    {
+        $cmd = Mockery::mock(DbPush::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $cmd->shouldReceive('option')->with('folder')->andReturnNull();
+        $cmd->shouldReceive('option')->with('timestamp')->andReturnNull();
+        $cmd->shouldReceive('option')->with('no-gzip')->andReturnNull();
+        $cmd->shouldReceive('option')->with('no-delete')->andReturnNull();
+        $cmd->shouldReceive('argument')->with('cloud')->andReturnNull();
+
+        $expectedFile = '2024-01-02_03_04_05.sql.gz';
+
+        $exception = Mockery::mock(ProcessFailedException::class);
+        $exception->shouldReceive('getProcess->getErrorOutput')
+            ->andReturn('mysqldump: command not found');
+
+        $cmd->shouldReceive('runLocalCommand')
+            ->once()
+            ->with("mysqldump -uuser -ppass db | gzip > {$expectedFile}")
+            ->andThrow($exception);
+
+        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
+        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $cmd->shouldReceive('comment')->zeroOrMoreTimes();
+        $cmd->shouldReceive('info')->zeroOrMoreTimes();
+        $cmd->shouldReceive('error')->atLeast()->once();
+
+        $result = $cmd->handle();
+
+        $this->assertSame(DbPush::FAILURE, $result);
     }
 }
