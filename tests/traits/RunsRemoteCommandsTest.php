@@ -23,7 +23,7 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: runRemote
-     * Test running a remote command using runAndGet.
+     * It should delegate to SshExecutor::runAndGet() and return its output.
      */
     public function testRunRemote(): void
     {
@@ -39,7 +39,7 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: runRemoteAndPrint
-     * Test running remote commands using runAndPrint.
+     * It should delegate to SshExecutor::runAndPrint() and return its output.
      */
     public function testRunRemoteAndPrint(): void
     {
@@ -55,7 +55,7 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: runRemoteRaw
-     * Test running a raw remote command using runRawCommand.
+     * It should delegate to SshExecutor::runRawCommand() and return its output.
      */
     public function testRunRemoteRaw(): void
     {
@@ -71,7 +71,8 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: runRemote
-     * Ensures runRemote uses the same cached SSH executor across multiple calls.
+     * It should reuse the same cached SshExecutor instance across multiple calls,
+     * even if the server name argument changes.
      */
     public function testRunRemoteUsesCachedSshExecutorAcrossCalls(): void
     {
@@ -87,7 +88,8 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: ssh
-     * Test that ssh() caches the executor instance once created or injected.
+     * It should return the same cached SshExecutor for subsequent calls,
+     * regardless of the server name passed in.
      */
     public function testSshCaching(): void
     {
@@ -99,7 +101,8 @@ class RunsRemoteCommandsTest extends PluginTestCase
 
     /**
      * Test function: ssh
-     * Test that manually overwriting sshExecutor replaces the cached instance.
+     * It should allow manually overwriting the cached SshExecutor instance
+     * by setting the sshExecutor property via the helper.
      */
     public function testSshExecutorCanBeOverwritten(): void
     {
@@ -120,7 +123,7 @@ class RunsRemoteCommandsTest extends PluginTestCase
 }
 
 /**
- * Helper class to expose protected methods of RunsRemoteCommands.
+ * Helper class to expose protected methods of RunsRemoteCommands for testing.
  */
 class RunsRemoteCommandsTestHelper
 {
