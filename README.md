@@ -201,15 +201,15 @@ php artisan syncops:db-pull {server} [options]
 
 #### Options
 
-| Option              | Description                                                                                                                                                                         |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--timestamp=`      | Date format used for naming the dump file. The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:db-pull production --timestamp=d-m-Y`                   |
-| `-g`, `--no-gzip`   | Skips the gzip compression process and transfers the database dump as a plain `.sql` file.<br>Example: `php artisan syncops:db-pull production --no-gzip`                           |
-| `-i`, `--no-import` | Prevents the database dump from being automatically imported into the local database after it has been downloaded.<br>Example: `php artisan syncops:db-pull production --no-import` |
+| Option              | Description                                                                                                                                                                            |
+|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--timestamp=`      | Date format used for naming the dump file. The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:db-pull production --timestamp=d-m-Y`                      |
+| `-g`, `--no-gzip`   | Skips the gzip compression process and transfers the database dump as a plain `.sql` file.<br>Example: `php artisan syncops:db-pull production --no-gzip`                              |
+| `-i`, `--no-import` | Prevents the database dump from being automatically imported<br>into the local database after it has been downloaded.<br>Example: `php artisan syncops:db-pull production --no-import` |
 
 #### Note
 
-> This command currently **only supports MySQL and MariaDB** databases.
+> This command currently **only supports MariaDB and MySQL** databases.
 > Other database types supported by Laravel (PostgreSQL, SQLite, SQL Server, Redis, etc.) are not compatible.
 
 ---
@@ -246,18 +246,18 @@ php artisan syncops:db-push {cloud?} [options]
 
 #### Arguments
 
-| Argument | Description                                                                                                                                                                                  |
-|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `cloud`  | The optional name of the cloud storage disk where the database dump file will be uploaded. Must be configured in `config/filesystems.php`.<br>Example: `php artisan syncops:db-push dropbox` |
+| Argument | Description                                                                                                                                                                                     |
+|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `cloud`  | The optional name of the cloud storage disk where the database dump file will be uploaded.<br>Must be configured in `config/filesystems.php`.<br>Example: `php artisan syncops:db-push dropbox` |
 
 #### Options
 
-| Option              | Description                                                                                                                                                                  |
-|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--folder=`         | The name of the folder where the dump file will be stored both locally and on the cloud.<br>Example: `php artisan syncops:db-push dropbox --folder=database`                 |
-| `--timestamp=`      | Date format used for naming the dump file. The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:db-push dropbox --timestamp=d-m-Y`               |
-| `-g`, `--no-gzip`   | Skips the gzip compression process, saving the dump file as a plain `.sql` file instead of a compressed archive.<br>Example: `php artisan syncops:db-push dropbox --no-gzip` |
-| `-d`, `--no-delete` | Prevents the local dump file from being deleted after it has been successfully uploaded to the cloud storage.<br>Example: `php artisan syncops:db-push dropbox --no-delete`  |
+| Option              | Description                                                                                                                                                                     |
+|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--folder=`         | The name of the folder where the dump file will be stored both locally and on the cloud.<br>Example: `php artisan syncops:db-push dropbox --folder=database`                    |
+| `--timestamp=`      | Date format used for naming the dump file. The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:db-push dropbox --timestamp=d-m-Y`                  |
+| `-g`, `--no-gzip`   | Skips the gzip compression process, saving the dump file<br>as a plain `.sql` file instead of a compressed archive.<br>Example: `php artisan syncops:db-push dropbox --no-gzip` |
+| `-d`, `--no-delete` | Prevents the local dump file from being deleted after it has been<br>successfully uploaded to the cloud storage.<br>Example: `php artisan syncops:db-push dropbox --no-delete`  |
 
 #### Usage in Scheduler
 
@@ -272,7 +272,7 @@ This example schedules a daily backup of your database to the `dropbox` disk eve
 
 #### Note
 
-> This command currently **only supports MySQL and MariaDB** databases.
+> This command currently **only supports MariaDB and MySQL** databases.
 > Other database types supported by Laravel (PostgreSQL, SQLite, SQL Server, Redis, etc.) are not compatible.
 
 ---
@@ -314,9 +314,9 @@ php artisan syncops:media-pull {server} [options]
 
 #### Options
 
-| Option           | Description                                                                                                                                                                                             |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--no-overwrite` | Prevents the command from overwriting local files that already exist, which is useful for only downloading new or updated files.<br>Example: `php artisan syncops:media-pull production --no-overwrite` |
+| Option           | Description                                                                                                                                                                                                |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--no-overwrite` | Prevents the command from overwriting local files that already exist,<br>which is useful for only downloading new or updated files.<br>Example: `php artisan syncops:media-pull production --no-overwrite` |
 
 #### Behavior
 
@@ -365,11 +365,11 @@ your uploaded media files. If no folder is specified, the default target folder 
 
 #### Options
 
-| Option            | Description                                                                                                                                                                                |
-|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--folder=`       | The optional target folder where the media files will be stored. Applies both locally and on cloud storage.<br>Example: `php artisan syncops:media-push dropbox --folder=media/my-project` |
-| `-l`, `--log`     | Displays details for each file as it is processed, including files that are uploaded and those that are skipped.<br>Example: `php artisan syncops:media-push dropbox --log`                |
-| `-d`, `--dry-run` | Simulates the upload process without actually transferring any files, which is useful for testing and verifying your setup.<br>Example: `php artisan syncops:media-push dropbox --dry-run` |
+| Option            | Description                                                                                                                                                                                   |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--folder=`       | The optional target folder where the media files will be stored.<br>Applies both locally and on cloud storage.<br>Example: `php artisan syncops:media-push dropbox --folder=media/my-project` |
+| `-l`, `--log`     | Displays details for each file as it is processed, including files<br>that are uploaded and those that are skipped.<br>Example: `php artisan syncops:media-push dropbox --log`                |
+| `-d`, `--dry-run` | Simulates the upload process without actually transferring any files,<br>which is useful for testing and verifying your setup.<br>Example: `php artisan syncops:media-push dropbox --dry-run` |
 
 #### Usage in Scheduler
 
@@ -408,12 +408,12 @@ php artisan syncops:project-backup {cloud?} [options]
 
 #### Options
 
-| Option              | Description                                                                                                                                                                                                                                                                    |
-|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--folder=`         | The folder where the archive will be stored. Applies both locally and on cloud storage.<br>Example: `php artisan syncops:project-backup --folder=backups/my-project`                                                                                                           |
-| `--timestamp=`      | Date format used for naming the archive file. The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:project-backup --timestamp=Y-m-d`                                                                                                               |
-| `--exclude=`        | Comma-separated list of folders to exclude from the archive. Folders `storage/framework/cache`, `/vendor` and backup folder (as defined with `--folder`) are always excluded by default.<br>Example: `php artisan syncops:project-backup --exclude=node_modules,storage,tests` |
-| `-d`, `--no-delete` | If set, the local archive file will **not** be deleted after upload. Instead, it will be moved into the `--folder` (if specified).<br>Example: `php artisan syncops:project-backup --no-delete`                                                                                |
+| Option              | Description                                                                                                                                                                                                                                                                          |
+|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--folder=`         | The folder where the archive will be stored.<br>Applies both locally and on cloud storage.<br>Example: `php artisan syncops:project-backup --folder=backups/my-project`                                                                                                              |
+| `--timestamp=`      | Date format used for naming the archive file.<br>The default is defined in `config/syncops.php`.<br>Example: `php artisan syncops:project-backup --timestamp=Y-m-d`                                                                                                                  |
+| `--exclude=`        | Comma-separated list of folders to exclude from the archive.<br>Folders `storage/framework/cache`, `/vendor` and backup folder<br>(as defined with `--folder`) are always excluded by default.<br>Example: `php artisan syncops:project-backup --exclude=node_modules,storage,tests` |
+| `-d`, `--no-delete` | If set, the local archive file will **not** be deleted after upload.<br>Instead, it will be moved into the `--folder` (if specified).<br>Example: `php artisan syncops:project-backup --no-delete`                                                                                   |
 
 #### Usage in Scheduler
 
@@ -520,11 +520,11 @@ details from this configuration to connect to the remote host.
 
 #### Options
 
-| Option              | Description                                                                                                                                                                                                                                                                                     |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `-p`, `--pull`      | Executes a `git pull` on the remote server before pushing changes. Use this to ensure the remote server's branch is fully up-to-date with the repository's origin before pushing its new changes.<br>Example: `php artisan syncops:project-pull production --pull`                              |
-| `-m`, `--no-merge`, | Prevents the command from automatically merging changes into your local branch after pushing them to the repository. This is useful if you want to inspect the changes on your local machine before merging them manually.<br>Example: `php artisan syncops:project-pull production --no-merge` |
-| `--message=`        | Specify a custom commit message for the changes on the remote server. If this option is not used, the default commit message is **"Server changes"**.<br>Example: `php artisan syncops:project-pull production --message="Updated content and layout"`                                          |
+| Option             | Description                                                                                                                                                                                                                                                                                           |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `-p`, `--pull`     | Executes a `git pull` on the remote server before pushing changes.<br>Use this to ensure the remote server's branch is fully up-to-date<br>with the repository's origin before pushing its new changes.<br>Example: `php artisan syncops:project-pull production --pull`                              |
+| `-m`, `--no-merge` | Prevents the command from automatically merging changes into your local<br>branch after pushing them to the repository. This is useful if you want to<br>inspect the changes on your local machine before merging them manually.<br>Example: `php artisan syncops:project-pull production --no-merge` |
+| `--message=`       | Specify a custom commit message for the changes on the remote server.<br>If this option is not used, the default commit message is **"Server changes"**.<br>Example: `php artisan syncops:project-pull production --message="Updated content"`                                                        |
 
 ---
 
@@ -562,9 +562,9 @@ By default, this will commit with the message **"Server changes"** and push them
 
 #### Options
 
-| Option       | Description                                                                                                                                                                                                            |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--message=` | Specify a custom commit message for the changes. If this option is not used, the default commit message is **"Server changes"**.<br>Example: `php artisan syncops:project-push --message="Updated content and layout"` |
+| Option       | Description                                                                                                                                                                                                               |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--message=` | Specify a custom commit message for the changes.<br>If this option is not used, the default commit message is **"Server changes"**.<br>Example: `php artisan syncops:project-push --message="Updated content and layout"` |
 
 ---
 
@@ -601,7 +601,7 @@ Everything after `{server}` is forwarded directly to `php artisan` on the remote
 
 This command uses the same **SSH** and **project settings**, defined in `config/syncops.php` under `connections`.
 
-**For the given `{server}`:**
+For the given `{server}`:
 
 * `ssh.host`, `ssh.port`, `ssh.username` (and `password` / `key_path`) must be valid.
 * `project.path` must point to the root of your Winter CMS project on the remote server.
@@ -609,10 +609,10 @@ This command uses the same **SSH** and **project settings**, defined in `config/
 
 #### Arguments
 
-| Argument          | Description                                                                                                                                            |
-|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `server`          | The name of the remote server (as defined in `config/syncops.php`).<br>Example: `php artisan syncops:remote-artisan production cache:clear`            |
-| `artisanCommand*` | The artisan sub-command and its arguments/options to run remotely, **without** the leading `php artisan`.<br>Example: `migrate --force`, `cache:clear` |
+| Argument          | Description                                                                                                                                               |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `server`          | The name of the remote server (as defined in `config/syncops.php`).<br>Example: `php artisan syncops:remote-artisan production cache:clear`               |
+| `artisanCommand*` | The artisan sub-command and its arguments/options to run remotely,<br>**without** the leading `php artisan`.<br>Example: `migrate --force`, `cache:clear` |
 
 #### Behavior
 
@@ -633,7 +633,7 @@ your Winter CMS project.
 This command is intended as a **diagnostic tool** when something feels “off” on a remote server (slow responses, 
 deployment issues, unexpected PHP behavior, etc.) and you want a quick, scriptable overview of the system.
 
-**This command performs the following actions:**
+This command performs the following actions:
 
 1. **System checks**
    - Shows uptime (`uptime`)
@@ -721,10 +721,10 @@ You can validate **all** configured servers, or filter the validation to a singl
 
 #### Options
 
-| Option      | Description                                                                                                                                                                                             |
-|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--server=` | Restrict validation to a single server key as defined in `config/syncops.php` under `connections`.<br>Example: `php artisan syncops:validate --server=production`                                       |
-| `--connect` | In addition to static checks, attempt a real SSH + SFTP connection for each validated server using `RemoteExecutor::connectBoth()`. Useful to confirm that credentials, host, and key path are working. |
+| Option      | Description                                                                                                                                                                                                   |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--server=` | Restrict validation to a single server key<br>as defined in `config/syncops.php` under `connections`.<br>Example: `php artisan syncops:validate --server=production`                                          |
+| `--connect` | In addition to static checks, attempt a real SSH + SFTP connection for each<br>validated server using `RemoteExecutor::connectBoth()`.<br>Useful to confirm that credentials, host, and key path are working. |
 
 #### Behavior
 
