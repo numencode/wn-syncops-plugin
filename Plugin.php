@@ -8,6 +8,7 @@ use NumenCode\SyncOps\Console\MediaPull;
 use NumenCode\SyncOps\Console\MediaPush;
 use NumenCode\SyncOps\Console\ProjectPull;
 use NumenCode\SyncOps\Console\ProjectPush;
+use NumenCode\SyncOps\Console\RemoteHealth;
 use NumenCode\SyncOps\Console\ProjectBackup;
 use NumenCode\SyncOps\Console\ProjectDeploy;
 use NumenCode\SyncOps\Console\RemoteArtisan;
@@ -54,6 +55,7 @@ class Plugin extends PluginBase
         $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
         $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
         $this->registerConsoleCommand('syncops.remote_artisan', RemoteArtisan::class);
+        $this->registerConsoleCommand('syncops.remote_health', RemoteHealth::class);
         $this->registerConsoleCommand('syncops.validate', Validate::class);
     }
 }

@@ -137,6 +137,7 @@ they are only required in your **local/dev environment** to allow SyncOps to con
 | [syncops:project-pull](#project-pull)     | Commit untracked changes on the remote server, push them<br>to the origin, and optionally merge them into the local branch. |
 | [syncops:project-push](#project-push)     | Add and commit project changes locally<br>and push them to the remote repository.                                           |
 | [syncops:remote-artisan](#remote-artisan) | Execute a `php artisan` command on a remote server<br>and stream the output back to your local console.                     |
+| [syncops:remote-health](#remote-health)   | Run health checks (system, PHP, database, Git, project)<br>on a remote server.                                              |
 | [syncops:validate](#validate)             | Validate SyncOps configuration (connections, SSH, paths)<br>and optionally test SSH connectivity.                           |
 
 ---
@@ -620,6 +621,80 @@ This command uses the same **SSH** and **project settings**, defined in `config/
 * It executes `php artisan {artisanCommand...}` on the remote server.
 * The remote output is streamed back to your local console.
 * If the SSH connection or the remote command fails, the command will print an error and return a non-zero exit code.
+
+---
+
+<a name="remote-health"></a>
+### Command: `syncops:remote-health`
+
+Run a set of **health checks on a remote server** to quickly verify that the environment is in good shape for running 
+your Winter CMS project.
+
+This command is intended as a **diagnostic tool** when something feels “off” on a remote server (slow responses, 
+deployment issues, unexpected PHP behavior, etc.) and you want a quick, scriptable overview of the system.
+
+**This command performs the following actions:**
+
+1. **System checks**
+   - Shows uptime (`uptime`)
+   - Prints disk usage (`df -h`)
+
+2. **PHP checks**
+   - Always shows PHP version (`php -v`)
+   - With `--full`, also lists loaded extensions (`php -m`)
+
+3. **Database checks** (only when a database is configured for the given connection)
+   - Detects available client: **prefers `mariadb`**, falls back to `mysql`
+   - Shows client version  
+   - With `--full`, performs a `SELECT 1` connectivity probe using the configured username/password/database from `config/syncops.php`
+
+4. **Project checks**
+   - Shows current working directory (`pwd`)
+   - Reports Git status and current branch (clean/dirty)
+   - Shows Laravel framework version (`php artisan --version`)
+   - Shows Winter CMS build (parsed from `php artisan winter:version`)
+
+#### Configuration
+
+This command reuses the configuration from `config/syncops.php`.
+
+*If the `database` block is missing or incomplete, database checks are skipped, but other checks still run.*
+
+#### Usage
+
+```bash
+php artisan syncops:remote-health {server} [options]
+```
+
+#### Arguments
+
+| Argument | Description                                                                                                                    |
+|----------|--------------------------------------------------------------------------------------------------------------------------------|
+| `server` | The name of the remote server (as defined in `config/syncops.php`).<br>Example: `php artisan syncops:remote-health production` |
+
+#### Options
+
+| Option   | Description                                                                                                                                                                                                                     |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--full` | Enables extended checks:<br>- Lists loaded PHP extensions (`php -m`)<br>- Performs a `SELECT 1` database connectivity probe using the configured credentials.<br>Example: `php artisan syncops:remote-health production --full` |
+
+#### Behavior
+
+* **Light mode (default)**:
+
+    * System: uptime, disk usage
+    * PHP: version only
+    * Database: client + version (if database is configured), no connectivity probe
+    * Project: working directory, Git clean/dirty + branch, framework and Winter CMS versions
+
+* **Full mode (`--full`)** additionally:
+
+    * Prints full list of PHP modules (`php -m`)
+    * Performs a `SELECT 1` against the configured database using the preferred client (`mariadb` or `mysql`)
+    * Reports database connectivity as **OK** or a warning with the error message
+
+> This command is read-only from the perspective of your project and database.
+> It does **not** run migrations, modify files, or alter the database — it only inspects and reports.
 
 ---
 
