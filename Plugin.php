@@ -3,6 +3,7 @@
 use System\Classes\PluginBase;
 use NumenCode\SyncOps\Console\DbPull;
 use NumenCode\SyncOps\Console\DbPush;
+use NumenCode\SyncOps\Console\Validate;
 use NumenCode\SyncOps\Console\MediaPull;
 use NumenCode\SyncOps\Console\MediaPush;
 use NumenCode\SyncOps\Console\ProjectPull;
@@ -53,5 +54,6 @@ class Plugin extends PluginBase
         $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
         $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
         $this->registerConsoleCommand('syncops.remote_artisan', RemoteArtisan::class);
+        $this->registerConsoleCommand('syncops.validate', Validate::class);
     }
 }

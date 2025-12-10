@@ -137,6 +137,8 @@ they are only required in your **local/dev environment** to allow SyncOps to con
 | [syncops:project-pull](#project-pull)     | Commit untracked changes on the remote server, push them<br>to the origin, and optionally merge them into the local branch. |
 | [syncops:project-push](#project-push)     | Add and commit project changes locally<br>and push them to the remote repository.                                           |
 | [syncops:remote-artisan](#remote-artisan) | Execute a `php artisan` command on a remote server<br>and stream the output back to your local console.                     |
+| [syncops:validate](#validate)             | Validate SyncOps configuration (connections, SSH, paths)<br>and optionally test SSH connectivity.                           |
+
 ---
 
 <a name="db-pull"></a>
@@ -618,6 +620,64 @@ This command uses the same **SSH** and **project settings**, defined in `config/
 * It executes `php artisan {artisanCommand...}` on the remote server.
 * The remote output is streamed back to your local console.
 * If the SSH connection or the remote command fails, the command will print an error and return a non-zero exit code.
+
+---
+
+<a name="validate"></a>
+### Command: `syncops:validate`
+
+The `syncops:validate` command helps you verify that your SyncOps configuration is correct and usable **before**
+running deployments, pulls, or backups. It performs static checks on your `config/syncops.php` connections and can
+optionally attempt live SSH connections to confirm that connectivity works as expected.
+
+This command is especially useful when:
+
+* Setting up SyncOps for the first time.
+* Adding or updating a server configuration (e.g. new production or staging server).
+* Debugging connection problems (`ssh.host`, `ssh.key_path`, or `project.path` issues).
+
+#### Usage
+
+```bash
+php artisan syncops:validate [options]
+````
+
+You can validate **all** configured servers, or filter the validation to a single connection key.
+
+#### Options
+
+| Option      | Description                                                                                                                                                                                             |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--server=` | Restrict validation to a single server key as defined in `config/syncops.php` under `connections`.<br>Example: `php artisan syncops:validate --server=production`                                       |
+| `--connect` | In addition to static checks, attempt a real SSH + SFTP connection for each validated server using `RemoteExecutor::connectBoth()`. Useful to confirm that credentials, host, and key path are working. |
+
+#### Behavior
+
+* Reads `config/syncops.php` and inspects each entry under `connections`.
+* For each server, it performs **static validation**:
+    * Confirms the presence of the `ssh` block and required fields like `ssh.host` and `ssh.username`.
+    * Warns if neither `ssh.password` nor `ssh.key_path` is set.
+    * If `ssh.key_path` is configured, checks if the file exists and is readable.
+    * Confirms that the `project` block exists and that `project.path` is set.
+    * Performs light sanity checks on optional sections like `database` and `permissions`.
+* When the `--connect` flag is used:
+    * For each server that passes static validation, it instantiates a `RemoteExecutor` and calls `connectBoth()`.
+    * Reports a **success** message when SSH connectivity works.
+    * Reports an **error** if connectivity fails (e.g. wrong host, invalid key, firewall).
+* If any configuration errors or connection failures are detected, the command exits with **FAILURE**.
+* If all checked servers pass, the command exits with **SUCCESS** and prints a summary message.
+
+#### Examples
+
+```bash
+# Validate all configured servers with static checks only
+php artisan syncops:validate
+
+# Validate only the `production` connection and test live SSH connectivity
+php artisan syncops:validate --server=production --connect
+```
+
+Use this command as a quick “pre-flight check” whenever you change your SyncOps configuration or deploy to new infrastructure.
 
 ---
 
