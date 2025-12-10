@@ -9,6 +9,7 @@ use NumenCode\SyncOps\Console\ProjectPull;
 use NumenCode\SyncOps\Console\ProjectPush;
 use NumenCode\SyncOps\Console\ProjectBackup;
 use NumenCode\SyncOps\Console\ProjectDeploy;
+use NumenCode\SyncOps\Console\RemoteArtisan;
 
 class Plugin extends PluginBase
 {
@@ -51,5 +52,6 @@ class Plugin extends PluginBase
         $this->registerConsoleCommand('syncops.project_deploy', ProjectDeploy::class);
         $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
         $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
+        $this->registerConsoleCommand('syncops.remote_artisan', RemoteArtisan::class);
     }
 }
