@@ -1,7 +1,7 @@
-<?php namespace NumenCode\SyncOps\Tests\Support;
+<?php namespace NumenCode\SyncOps\Tests\Classes;
 
 use PluginTestCase;
-use NumenCode\SyncOps\Support\MysqlCommandBuilder;
+use NumenCode\SyncOps\Classes\MysqlCommandBuilder;
 
 class MysqlCommandBuilderTest extends PluginTestCase
 {
