@@ -87,7 +87,6 @@ class ProjectDeployTest extends PluginTestCase
             ->twice()
             ->with([
                 ['php', 'artisan', 'route:clear'],
-                ['php', 'artisan', 'config:clear'],
                 ['php', 'artisan', 'cache:clear'],
             ]);
 
@@ -366,6 +365,44 @@ class ProjectDeployTest extends PluginTestCase
         $result = $cmd->handle();
 
         $this->assertSame(ProjectDeploy::SUCCESS, $result);
+    }
+
+    /**
+     * Test function: handleOwnership
+     * When the "web_folders" config value is provided as an array instead of a comma-separated string,
+     * the method should still iterate over all folders, apply chown for each, and behave identically.
+     */
+    public function testHandleOwnershipSupportsArrayWebFolders(): void
+    {
+        $executor = new RemoteExecutorStub();
+        $executor->config = [
+            'permissions' => [
+                'web_user'    => 'www-data:www-data',
+                'web_folders' => ['storage', 'public/uploads'],
+            ],
+        ];
+
+        $ssh = Mockery::mock(SshExecutor::class);
+        $executor->ssh = $ssh;
+
+        $ssh->shouldReceive('runAndPrint')
+            ->once()
+            ->with([['chown', 'www-data:www-data', '-R', 'storage']]);
+        $ssh->shouldReceive('runAndPrint')
+            ->once()
+            ->with([['chown', 'www-data:www-data', '-R', 'public/uploads']]);
+
+        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $cmd->shouldReceive('line')->atLeast()->once();
+        $cmd->shouldReceive('newLine')->atLeast()->once();
+
+        // Call handleOwnership directly via a closure
+        (function () use ($executor) {
+            $this->handleOwnership($executor, false);
+        })->call($cmd);
+
+        $this->assertTrue(true);
     }
 
     /**

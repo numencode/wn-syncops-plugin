@@ -18,34 +18,41 @@ class ProjectDeploy extends Command
     {
         $this->newLine();
 
+        $server = $this->argument('server');
+
         try {
-            $this->line("Connecting to remote server '{$this->argument('server')}'...");
+            $this->line("Connecting to remote server '{$server}'...");
             $this->newLine();
-            $executor = $this->createExecutor($this->argument('server'));
+
+            $executor = $this->createExecutor($server);
 
             if (!$executor->ssh->remoteIsClean()) {
-                $this->error("✘ Remote changes detected. Aborting deployment process.");
+                $this->error('✘ Remote changes detected. Aborting deployment process.');
                 $this->newLine();
-                $this->warn("Please run a command:");
-                $this->info("php artisan syncops:project-pull " . $this->argument('server'));
+                $this->warn('Please run the following command:');
+                $this->info("php artisan syncops:project-pull {$server}");
                 return self::FAILURE;
             }
+
+            $useSudo = (bool) $this->option('sudo');
 
             $success = $this->option('fast')
-                ? $this->fastDeploy($executor, (bool)$this->option('sudo'))
-                : $this->deploy($executor, (bool)$this->option('sudo'));
+                ? $this->fastDeploy($executor, $useSudo)
+                : $this->deploy($executor, $useSudo);
 
-            $this->handleOwnership($executor, (bool)$this->option('sudo'));
+            $this->handleOwnership($executor, $useSudo);
 
             if (!$success) {
-                $this->error("✘ Project deployment FAILED. Check error logs to see what went wrong.");
+                $this->error('✘ Project deployment FAILED. Check error logs to see what went wrong.');
                 return self::FAILURE;
             }
 
-            $this->info("✔ Project was successfully deployed.");
+            $this->newLine();
+            $this->info('✔ Project was successfully deployed.');
             return self::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error("✘ An error occurred on server '{$this->argument('server')}':");
+        } catch (\Throwable $e) {
+            $this->newLine();
+            $this->error("✘ An error occurred on server '{$server}':");
             $this->error($e->getMessage());
             return self::FAILURE;
         }
@@ -85,11 +92,13 @@ class ProjectDeploy extends Command
         if (!empty($config['permissions']['root_user'])) {
             $this->line('Handling file ownership...');
             $executor->ssh->runAndPrint([
-                $this->wrapSudo(['chown', $config['permissions']['root_user'], '-R', '.'], $useSudo)
+                $this->wrapSudo(['chown', $config['permissions']['root_user'], '-R', '.'], $useSudo),
             ]);
         }
 
-        $branchMain = array_key_exists('branch_main', $config['project']) ? $config['project']['branch_main'] : 'main';
+        $branchMain = array_key_exists('branch_main', $config['project'])
+            ? $config['project']['branch_main']
+            : 'main';
 
         // If branch_main is explicitly false => pull-only mode (no merge)
         if ($branchMain === false) {
@@ -110,7 +119,7 @@ class ProjectDeploy extends Command
         $result = $executor->ssh->runAndPrint([['git', 'pull']]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error("✘ Conflicts detected. Reverting changes...");
+            $this->error('✘ Conflicts detected. Reverting changes...');
             $executor->ssh->runAndPrint([['git', 'reset', '--hard']]);
             return false;
         }
@@ -136,13 +145,14 @@ class ProjectDeploy extends Command
         ]);
 
         if (str_contains($result, 'CONFLICT')) {
-            $this->error("✘ Conflicts detected. Reverting...");
+            $this->error('✘ Conflicts detected. Reverting...');
             $executor->ssh->runAndPrint([['git', 'reset', '--hard']]);
             return false;
         }
 
         // Push target branch if configured
         $pushBranch = $config['project']['branch_prod'] ?? $config['project']['branch_main'] ?? null;
+
         if (!empty($pushBranch)) {
             $executor->ssh->runAndPrint([['git', 'push', 'origin', $pushBranch]]);
             $this->newLine();
@@ -176,6 +186,10 @@ class ProjectDeploy extends Command
 
     /**
      * Handle file ownership for web user folders configured in syncops config.
+     *
+     * Supports both:
+     *  - array: ['storage', 'themes']
+     *  - string: 'storage, themes'
      */
     protected function handleOwnership(RemoteExecutor $executor, bool $useSudo): void
     {
@@ -185,14 +199,28 @@ class ProjectDeploy extends Command
             return;
         }
 
-        $folders = array_map('trim', explode(',', $config['permissions']['web_folders']));
+        $rawFolders = $config['permissions']['web_folders'];
+
+        if (is_string($rawFolders)) {
+            $folders = array_map('trim', explode(',', $rawFolders));
+        } elseif (is_array($rawFolders)) {
+            $folders = array_map('trim', $rawFolders);
+        } else {
+            $folders = [];
+        }
+
+        $folders = array_values(array_filter(array_unique($folders), static fn($folder) => $folder !== ''));
+
+        if (empty($folders)) {
+            return;
+        }
 
         $this->line('Handling file ownership...');
         $this->newLine();
 
         foreach ($folders as $folder) {
             $executor->ssh->runAndPrint([
-                $this->wrapSudo(['chown', $config['permissions']['web_user'], '-R', $folder], $useSudo)
+                $this->wrapSudo(['chown', $config['permissions']['web_user'], '-R', $folder], $useSudo),
             ]);
         }
     }
@@ -213,7 +241,6 @@ class ProjectDeploy extends Command
     {
         return [
             $this->wrapSudo(['php', 'artisan', 'route:clear'], $useSudo),
-            $this->wrapSudo(['php', 'artisan', 'config:clear'], $useSudo),
             $this->wrapSudo(['php', 'artisan', 'cache:clear'], $useSudo),
         ];
     }
