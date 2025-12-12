@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-12
+
+### Added
+- `syncops:remote-artisan` for running `php artisan` commands on a remote server and streaming output locally.
+- `syncops:validate` for validating `config/syncops.php` connections, SSH settings, and paths (with optional `--connect` check).
+- `syncops:remote-health` for inspecting a single remote server (system, PHP, database, Git, Laravel + Winter CMS).
+- New README sections documenting all new commands and options.
+
+### Changed
+- Refactored remote helpers (`RemoteExecutor`, `SshExecutor`, `SftpExecutor`) for clearer, safer SSH/SFTP and command execution.
+- Improved internals of existing commands (DB, media, project backup/deploy/pull/push) for consistency and maintainability.
+- Centralized MySQL/MariaDB dump & import command generation in a dedicated helper.
+
+### Fixed
+- More robust cleanup of temporary local and remote files after success or failure.
+- Better handling of edge cases in remote database dumps, Git operations, and media synchronization.
+
+
 ## [1.0.0] - 2025-11-04
 
 ### Added
