@@ -627,10 +627,10 @@ For the given `{server}`:
 <a name="remote-health"></a>
 ### Command: `syncops:remote-health`
 
-Run a set of **health checks on a remote server** to quickly verify that the environment is in good shape for running 
+Run a set of **health checks on a remote server** to quickly verify that the environment is in good shape for running
 your Winter CMS project.
 
-This command is intended as a **diagnostic tool** when something feels “off” on a remote server (slow responses, 
+This command is intended as a **diagnostic tool** when something feels “off” on a remote server (slow responses,
 deployment issues, unexpected PHP behavior, etc.) and you want a quick, scriptable overview of the system.
 
 This command performs the following actions:
@@ -682,16 +682,16 @@ php artisan syncops:remote-health {server} [options]
 
 * **Light mode (default)**:
 
-    * System: uptime, disk usage
-    * PHP: version only
-    * Database: client + version (if database is configured), no connectivity probe
-    * Project: working directory, Git clean/dirty + branch, framework and Winter CMS versions
+  * System: uptime, disk usage
+  * PHP: version only
+  * Database: client + version (if database is configured), no connectivity probe
+  * Project: working directory, Git clean/dirty + branch, framework and Winter CMS versions
 
 * **Full mode (`--full`)** additionally:
 
-    * Prints full list of PHP modules (`php -m`)
-    * Performs a `SELECT 1` against the configured database using the preferred client (`mariadb` or `mysql`)
-    * Reports database connectivity as **OK** or a warning with the error message
+  * Prints full list of PHP modules (`php -m`)
+  * Performs a `SELECT 1` against the configured database using the preferred client (`mariadb` or `mysql`)
+  * Reports database connectivity as **OK** or a warning with the error message
 
 > This command is read-only from the perspective of your project and database.
 > It does **not** run migrations, modify files, or alter the database — it only inspects and reports.
@@ -730,15 +730,15 @@ You can validate **all** configured servers, or filter the validation to a singl
 
 * Reads `config/syncops.php` and inspects each entry under `connections`.
 * For each server, it performs **static validation**:
-    * Confirms the presence of the `ssh` block and required fields like `ssh.host` and `ssh.username`.
-    * Warns if neither `ssh.password` nor `ssh.key_path` is set.
-    * If `ssh.key_path` is configured, checks if the file exists and is readable.
-    * Confirms that the `project` block exists and that `project.path` is set.
-    * Performs light sanity checks on optional sections like `database` and `permissions`.
+  * Confirms the presence of the `ssh` block and required fields like `ssh.host` and `ssh.username`.
+  * Warns if neither `ssh.password` nor `ssh.key_path` is set.
+  * If `ssh.key_path` is configured, checks if the file exists and is readable.
+  * Confirms that the `project` block exists and that `project.path` is set.
+  * Performs light sanity checks on optional sections like `database` and `permissions`.
 * When the `--connect` flag is used:
-    * For each server that passes static validation, it instantiates a `RemoteExecutor` and calls `connectBoth()`.
-    * Reports a **success** message when SSH connectivity works.
-    * Reports an **error** if connectivity fails (e.g. wrong host, invalid key, firewall).
+  * For each server that passes static validation, it instantiates a `RemoteExecutor` and calls `connectBoth()`.
+  * Reports a **success** message when SSH connectivity works.
+  * Reports an **error** if connectivity fails (e.g. wrong host, invalid key, firewall).
 * If any configuration errors or connection failures are detected, the command exits with **FAILURE**.
 * If all checked servers pass, the command exits with **SUCCESS** and prints a summary message.
 
