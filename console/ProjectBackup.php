@@ -1,108 +1,127 @@
-<?php namespace NumenCode\SyncOps\Console;
+<?php
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
-use NumenCode\SyncOps\Traits\RunsLocalCommands;
+declare(strict_types=1);
 
-class ProjectBackup extends Command
+namespace NumenCode\SyncOps\Console;
+
+use NumenCode\SyncOps\Classes\SyncOpsCommand;
+use RuntimeException;
+use Symfony\Component\Process\Process;
+
+class ProjectBackup extends SyncOpsCommand
 {
-    use RunsLocalCommands;
-
     protected $signature = 'syncops:project-backup
-        {cloud?        : Cloud storage where the archive will be uploaded}
-        {--folder=     : The folder where the archive will be stored (default is "backup"; locally and/or on cloud storage)}
-        {--timestamp=  : Date format used for naming the archive file}
-        {--exclude=    : Comma-separated list of folders to exclude ("vendor" and "backup" dir are excluded by default)}
-        {--d|no-delete : Do not delete the archive after upload to cloud storage}';
+        {cloud?          : Storage disk to upload the archive to (e.g. "dropbox"); without it the archive stays local}
+        {--folder=project : Folder in the backup folder and on the cloud disk}
+        {--exclude=      : More paths to leave out (comma-separated, relative to the project root)}
+        {--include-env   : Include the .env file (it contains all secrets)}
+        {--timestamp=    : Date format for the archive file name}
+        {--d|no-delete   : Keep the local archive after uploading it}
+        {--keep=         : Keep only the newest N archives in the folder (locally and on the cloud disk)}';
 
-    protected $description = 'Create a compressed archive of project files and optionally upload it to cloud storage.';
+    protected $description = 'Back up the project files as a .tar.gz archive, optionally upload it to cloud storage and rotate old archives.';
 
-    protected string $archiveFile;
-
-    public function handle(): int
+    protected function process(): int
     {
-        $this->newLine();
+        $cloud = $this->argument('cloud') ? (string) $this->argument('cloud') : null;
+        $folder = trim((string) $this->option('folder'), '/');
+        $keep = $this->keepCount();
 
-        $folder = $this->option('folder') ? rtrim($this->option('folder'), '/\\') : null;
-        $backupDirName = $folder ?? 'backup';
-        $cloudFolderPrefix = format_path($backupDirName);
-        $backupDirFull = base_path($backupDirName);
-        $timestamp = $this->option('timestamp') ?: config('syncops.timestamp', 'Y-m-d_H_i_s');
-        $isBackupDirCreated = false;
-
-        if (!File::isDirectory($backupDirFull)) {
-            File::makeDirectory($backupDirFull, 0777, true, true);
-            $isBackupDirCreated = true;
+        if ($cloud !== null) {
+            $this->cloudDisk($cloud); // fail early when the disk is not configured
         }
 
-        $exclude = $this->prepareExcludeList($this->option('exclude'), $backupDirName);
-        $basename = now()->format($timestamp) . '.tar.gz';
-        $this->archiveFile = $backupDirName . '/' . $basename;
+        $fileName = $this->timestamp() . '.tar.gz';
+        $backupDirectory = $this->backupDirectory($folder);
+        $keepLocal = $cloud === null || $this->option('no-delete');
+        $archive = ($keepLocal ? $backupDirectory : $this->localTempDirectory()) . DIRECTORY_SEPARATOR . $fileName;
+        $excludes = $this->excludes();
 
-        $this->line("Creating project archive ({$this->archiveFile})...");
-        $archiveArg = escapeshellarg($this->archiveFile);
-        $tarCommand = "tar -pczf {$archiveArg} {$exclude} .";
-        $this->runLocalCommand($tarCommand, 3600);
-        $this->comment("Project archive successfully created: {$this->archiveFile}");
-        $this->newLine();
+        $this->step('Creating the archive (' . count($excludes) . ' paths excluded' . ($this->option('include-env') ? ', with .env' : ', without .env') . ')', function () use ($archive, $excludes): void {
+            // tar writes to stdout and PHP writes the file: archive paths like "C:\…" confuse GNU tar on Windows
+            // (it reads "C:" as a remote host), and this works the same with every tar
+            $command = ['tar', '-cz', '-f', '-'];
 
-        if ($this->argument('cloud')) {
-            $cloud = $this->argument('cloud');
-            $cloudStorage = Storage::disk($cloud);
-
-            $this->line("Uploading project archive to cloud storage [{$cloud}]...");
-            $localFullPath = base_path($this->archiveFile);
-            $stream = fopen($localFullPath, 'r');
-            $cloudStorage->put($cloudFolderPrefix . basename($this->archiveFile), $stream);
-
-            if (is_resource($stream)) {
-                fclose($stream);
+            foreach ($excludes as $path) {
+                // "./path" only matches at the project root
+                $command[] = '--exclude=./' . $path;
             }
 
-            $this->comment('Project archive successfully uploaded.');
-            $this->newLine();
+            $command[] = '.';
 
-            if (!$this->option('no-delete')) {
-                $this->line('Deleting local project archive...');
+            $handle = @fopen($archive, 'wb');
 
-                File::delete($localFullPath);
-
-                if ($isBackupDirCreated) {
-                    File::deleteDirectory($backupDirFull);
-                }
-
-                $this->comment('Local archive successfully deleted.');
-            } else {
-                // Archive is already in $backupDirName
-                $this->comment("Local archive preserved in: {$backupDirFull}");
+            if ($handle === false) {
+                throw new RuntimeException("Unable to write {$archive}.");
             }
-        } else {
-            // No cloud; if user wants to keep the archive and specified a folder, it's already in that folder.
-            if ($this->option('no-delete')) {
-                $this->comment("Local archive preserved in: {$backupDirFull}");
+
+            $process = new Process($command, base_path());
+            $process->setTimeout(null);
+
+            try {
+                $process->run(static function (string $type, string $buffer) use ($handle): void {
+                    if ($type === Process::OUT) {
+                        fwrite($handle, $buffer);
+                    }
+                });
+            } finally {
+                fclose($handle);
             }
+
+            if (!$process->isSuccessful()) {
+                @unlink($archive);
+
+                throw new RuntimeException('Creating the archive failed:' . "\n" . trim($process->getErrorOutput()));
+            }
+        });
+
+        @chmod($archive, 0640);
+        $size = (int) filesize($archive);
+
+        if ($cloud !== null) {
+            $path = ($folder !== '' ? $folder . '/' : '') . $fileName;
+            $this->step("Uploading to '{$cloud}' ({$path}, " . $this->bytes($size) . ')', fn () => $this->uploadFile($cloud, $archive, $path));
         }
 
+        $this->pruneBackups($keep, '.tar.gz', $backupDirectory, $cloud, $folder);
+
         $this->newLine();
-        $this->info('✔ Project backup was successfully created.');
+        $this->info('✔ Project backup created (' . $this->bytes($size) . ')'
+            . ($cloud !== null ? " and uploaded to '{$cloud}'" : '')
+            . ($keepLocal ? ': ' . $archive : '.'));
+
         return self::SUCCESS;
     }
 
-    protected function prepareExcludeList(?string $excludeList, string $backupDirName): string
+    /**
+     * Paths left out of the archive: config "backup.exclude", the backup folder, --exclude and (unless
+     * --include-env) the .env file.
+     *
+     * @return array<int, string>
+     */
+    protected function excludes(): array
     {
-        $defaults = [$backupDirName, 'storage/framework/cache', 'vendor'];
+        $paths = (array) config('syncops.backup.exclude', []);
+        $paths[] = $this->relativeToProject($this->backupDirectory());
 
-        if ($excludeList !== null && $excludeList !== '') {
-            $additional = array_map('trim', explode(',', $excludeList));
-            $defaults = array_merge($defaults, $additional);
+        foreach (explode(',', (string) $this->option('exclude')) as $path) {
+            $paths[] = $path;
         }
 
-        $defaults = array_unique($defaults);
+        if (!$this->option('include-env')) {
+            $paths[] = '.env';
+        }
 
-        return collect($defaults)
-            ->filter(static fn($item) => $item !== '')
-            ->map(static fn($item) => '--exclude=' . escapeshellarg($item))
-            ->implode(' ');
+        $paths = array_map(static fn ($path) => trim(str_replace('\\', '/', (string) $path), "/ \t"), $paths);
+
+        return array_values(array_unique(array_filter($paths, static fn ($path) => $path !== '' && $path !== '.')));
+    }
+
+    protected function relativeToProject(string $path): string
+    {
+        $base = rtrim(str_replace('\\', '/', base_path()), '/') . '/';
+        $path = str_replace('\\', '/', $path);
+
+        return str_starts_with($path, $base) ? substr($path, strlen($base)) : '';
     }
 }

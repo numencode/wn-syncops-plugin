@@ -1,100 +1,80 @@
-<?php namespace NumenCode\SyncOps\Console;
+<?php
 
-use Illuminate\Console\Command;
-use NumenCode\SyncOps\Classes\RemoteExecutor;
+declare(strict_types=1);
 
-class MediaPull extends Command
+namespace NumenCode\SyncOps\Console;
+
+use Illuminate\Support\Facades\File;
+use NumenCode\SyncOps\Classes\SyncOpsCommand;
+
+class MediaPull extends SyncOpsCommand
 {
     protected $signature = 'syncops:media-pull
-        {server             : The name of the remote server}
-        {--o|--no-overwrite : Do not overwrite existing local files if they already exist}';
+        {server            : The connection name from config/syncops.php}
+        {--o|no-overwrite  : Never overwrite existing local files}
+        {--dry-run         : Only list the files that would be downloaded}';
 
-    protected $description = 'Download media files from the remote server via SFTP into local storage.';
+    protected $description = 'Download the files in storage/app (media, uploads) from a server; unchanged files are skipped.';
 
-    public function handle(): int
+    protected function process(): int
     {
-        $this->newLine();
+        $name = (string) $this->argument('server');
+        $server = $this->server($name);
+        $remoteRoot = $server->projectPath('storage/app');
+        $localRoot = storage_path('app');
 
-        $serverName = $this->argument('server');
-        $noOverwrite = (bool) $this->option('no-overwrite');
+        $remoteFiles = $this->step('Listing the files on the server', static fn () => $server->listFiles($remoteRoot));
+        $download = [];
+        $skipped = 0;
 
-        try {
-            $this->line("Connecting to remote server '{$serverName}'...");
-
-            $executor = $this->createExecutor($serverName);
-
-            if (empty($executor->config['project']['path'])) {
-                throw new \RuntimeException(
-                    "Project path is not defined for server '{$serverName}' in syncops configuration."
-                );
+        foreach ($remoteFiles as $path => $size) {
+            if ($this->isExcludedMedia($path)) {
+                continue;
             }
 
-            $remotePath = rtrim($executor->config['project']['path'], '/') . '/storage/app';
-            $localPath  = storage_path('app');
+            $local = $localRoot . '/' . $path;
 
-            $this->line('Fetching file list from remote server...');
-            $files = $executor->sftp->listFilesRecursively($remotePath);
-
-            $this->newLine();
-
-            if (empty($files)) {
-                $this->info('✔ No media files found on remote server.');
-                return self::SUCCESS;
+            if (is_file($local) && ($this->option('no-overwrite') || filesize($local) === $size)) {
+                $skipped++;
+                continue;
             }
 
-            $this->line('Downloading ' . count($files) . ' media files...');
-            $bar = $this->output?->createProgressBar(count($files));
-
-            foreach ($files as $remoteFile) {
-                $relativePath = ltrim(str_replace($remotePath, '', $remoteFile), '/');
-                $localFile    = $localPath . '/' . $relativePath;
-
-                // Ensure directory exists
-                if (!is_dir(dirname($localFile))) {
-                    mkdir(dirname($localFile), 0777, true);
-                }
-
-                // Skip if file exists and we shouldn't overwrite
-                if ($noOverwrite && file_exists($localFile)) {
-                    $bar?->advance();
-                    continue;
-                }
-
-                // Skip if same size
-                if (file_exists($localFile)) {
-                    $remoteSize = $executor->sftp->filesizeRemote($remoteFile);
-                    $localSize  = filesize($localFile);
-
-                    if ($remoteSize === $localSize) {
-                        $bar?->advance();
-                        continue;
-                    }
-                }
-
-                // Download when needed
-                $executor->sftp->download($remoteFile, $localFile);
-                $bar?->advance();
-            }
-
-            $bar?->finish();
-
-            $this->newLine(2);
-            $this->info('✔ Media files successfully synced from remote server.');
-            return self::SUCCESS;
-        } catch (\Throwable $e) {
-            $this->newLine();
-            $this->error("✘ An error occurred on server '{$serverName}':");
-            $this->error($e->getMessage());
-            return self::FAILURE;
+            $download[$path] = $size;
         }
-    }
 
-    /**
-     * Factory method to create a RemoteExecutor instance.
-     * Separated for easier testing.
-     */
-    protected function createExecutor(string $server): RemoteExecutor
-    {
-        return new RemoteExecutor($server);
+        $bytes = array_sum($download);
+        $this->line(count($download) . ' file(s) to download (' . $this->bytes($bytes) . "), {$skipped} unchanged.");
+
+        if ($this->option('dry-run')) {
+            foreach ($download as $path => $size) {
+                $this->line("  {$path} (" . $this->bytes($size) . ')');
+            }
+
+            $this->info('✔ Dry run: nothing was downloaded.');
+
+            return self::SUCCESS;
+        }
+
+        if ($download !== []) {
+            $bar = $this->output->createProgressBar(count($download));
+
+            foreach ($download as $path => $size) {
+                $local = $localRoot . '/' . $path;
+
+                if (!File::isDirectory(dirname($local))) {
+                    File::makeDirectory(dirname($local), 0755, true, true);
+                }
+
+                $server->download($remoteRoot . '/' . $path, $local);
+                $bar->advance();
+            }
+
+            $bar->finish();
+            $this->newLine(2);
+        }
+
+        $this->info('✔ Downloaded ' . count($download) . ' file(s) (' . $this->bytes($bytes) . "), skipped {$skipped}.");
+
+        return self::SUCCESS;
     }
 }

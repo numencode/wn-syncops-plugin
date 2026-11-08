@@ -1,61 +1,65 @@
-<?php namespace NumenCode\SyncOps;
+<?php
 
-use System\Classes\PluginBase;
+declare(strict_types=1);
+
+namespace NumenCode\SyncOps;
+
+use NumenCode\SyncOps\Console\DbBackup;
 use NumenCode\SyncOps\Console\DbPull;
-use NumenCode\SyncOps\Console\DbPush;
-use NumenCode\SyncOps\Console\Validate;
+use NumenCode\SyncOps\Console\MediaBackup;
 use NumenCode\SyncOps\Console\MediaPull;
-use NumenCode\SyncOps\Console\MediaPush;
-use NumenCode\SyncOps\Console\ProjectPull;
-use NumenCode\SyncOps\Console\ProjectPush;
-use NumenCode\SyncOps\Console\RemoteHealth;
 use NumenCode\SyncOps\Console\ProjectBackup;
+use NumenCode\SyncOps\Console\ProjectCommit;
 use NumenCode\SyncOps\Console\ProjectDeploy;
+use NumenCode\SyncOps\Console\ProjectPull;
 use NumenCode\SyncOps\Console\RemoteArtisan;
+use NumenCode\SyncOps\Console\RemoteHealth;
+use NumenCode\SyncOps\Console\RemoteMigrate;
+use NumenCode\SyncOps\Console\Validate;
+use System\Classes\PluginBase;
 
 class Plugin extends PluginBase
 {
-    public function pluginDetails()
+    /**
+     * Console commands: registration key => class.
+     */
+    public const COMMANDS = [
+        'syncops.db_pull'        => DbPull::class,
+        'syncops.db_backup'      => DbBackup::class,
+        'syncops.media_pull'     => MediaPull::class,
+        'syncops.media_backup'   => MediaBackup::class,
+        'syncops.project_backup' => ProjectBackup::class,
+        'syncops.project_commit' => ProjectCommit::class,
+        'syncops.project_deploy' => ProjectDeploy::class,
+        'syncops.project_pull'   => ProjectPull::class,
+        'syncops.remote_artisan' => RemoteArtisan::class,
+        'syncops.remote_health'  => RemoteHealth::class,
+        'syncops.remote_migrate' => RemoteMigrate::class,
+        'syncops.validate'       => Validate::class,
+    ];
+
+    public function pluginDetails(): array
     {
         return [
             'name'        => 'numencode.syncops::lang.plugin.name',
             'description' => 'numencode.syncops::lang.plugin.description',
             'author'      => 'Blaz Orazem',
             'icon'        => 'icon-cloud-upload',
-            'homepage'    => 'https://github.com/numencode/wn-syncops-plugin',
+            'homepage'    => 'https://www.numencode.com',
         ];
     }
 
-    public function boot()
-    {
-        $this->publishes([__DIR__ . '/config/syncops.php' => config_path('syncops.php')], 'syncops-config');
-    }
-
-    public function register()
+    public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/config/syncops.php', 'syncops');
 
-        $this->registerHelpers();
-        $this->registerConsoleCommands();
+        foreach (self::COMMANDS as $key => $command) {
+            $this->registerConsoleCommand($key, $command);
+        }
     }
 
-    protected function registerHelpers()
+    public function boot(): void
     {
-        require_once __DIR__ . '/helpers.php';
-    }
-
-    protected function registerConsoleCommands()
-    {
-        $this->registerConsoleCommand('syncops.db_pull', DbPull::class);
-        $this->registerConsoleCommand('syncops.db_push', DbPush::class);
-        $this->registerConsoleCommand('syncops.media_pull', MediaPull::class);
-        $this->registerConsoleCommand('syncops.media_push', MediaPush::class);
-        $this->registerConsoleCommand('syncops.project_backup', ProjectBackup::class);
-        $this->registerConsoleCommand('syncops.project_deploy', ProjectDeploy::class);
-        $this->registerConsoleCommand('syncops.project_pull', ProjectPull::class);
-        $this->registerConsoleCommand('syncops.project_push', ProjectPush::class);
-        $this->registerConsoleCommand('syncops.remote_artisan', RemoteArtisan::class);
-        $this->registerConsoleCommand('syncops.remote_health', RemoteHealth::class);
-        $this->registerConsoleCommand('syncops.validate', Validate::class);
+        $this->publishes([__DIR__ . '/config/syncops.php' => config_path('syncops.php')], 'syncops-config');
     }
 }

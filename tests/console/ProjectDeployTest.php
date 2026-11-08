@@ -1,433 +1,155 @@
-<?php namespace NumenCode\SyncOps\Tests\Console;
+<?php
 
-use Mockery;
-use PluginTestCase;
-use NumenCode\SyncOps\Classes\SshExecutor;
-use NumenCode\SyncOps\Console\ProjectDeploy;
-use NumenCode\SyncOps\Classes\RemoteExecutor;
+declare(strict_types=1);
 
-class RemoteExecutorStub extends RemoteExecutor
+namespace NumenCode\SyncOps\Tests\Console;
+
+use NumenCode\SyncOps\Classes\CommandResult;
+use NumenCode\SyncOps\Tests\SyncOpsTestCase;
+
+class ProjectDeployTest extends SyncOpsTestCase
 {
-    public function __construct()
+    public function setUp(): void
     {
-        // Bypass real constructor, we will manually set config and ssh.
-    }
-}
+        parent::setUp();
 
-class ProjectDeployTest extends PluginTestCase
-{
-    public function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
+        $this->server->results["/'rev-parse' '--abbrev-ref' 'HEAD'/"] = new CommandResult(0, "prod\n");
+        $this->server->results["/'rev-parse' 'HEAD'/"] = $this->commits('aaaaaaa', 'bbbbbbb');
+        $this->server->results["/'diff' '--name-only' 'aaaaaaa' 'bbbbbbb'/"] = new CommandResult(0, "themes/demo/pages/home.htm\n");
     }
 
     /**
-     * Test function: handle
-     * When the remote repository is not clean (has uncommitted changes),
-     * the command should abort deployment, print instructions to run
-     * project-pull, and return FAILURE.
+     * "git rev-parse HEAD" returns $before the first time and $after afterwards.
      */
-    public function testHandleAbortsWhenRemoteDirty(): void
+    protected function commits(string $before, string $after): callable
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config = [];
+        $calls = 0;
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnFalse();
-        $executor->ssh = $ssh;
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('staging')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('staging');
-
-        // Options are not used in this early-exit branch, but safe to stub
-        $cmd->shouldReceive('option')->with('fast')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('warn')->atLeast()->once();
-        $cmd->shouldReceive('error')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::FAILURE, $result);
+        return static function () use (&$calls, $before, $after): CommandResult {
+            return new CommandResult(0, ($calls++ === 0 ? $before : $after) . "\n");
+        };
     }
 
-    /**
-     * Test function: handle / deploy / fastDeploy / mergeDeploy
-     * Full (non-fast) deploy should:
-     * - Put the app in maintenance mode (php artisan down),
-     * - Clear caches,
-     * - Perform a merge-based deploy,
-     * - Rebuild caches,
-     * - Bring the app out of maintenance mode (php artisan up),
-     * and finally return SUCCESS.
-     */
-    public function testFullDeployRunsMaintenanceAndCacheCommands(): void
+    public function testDeploysInTheRightOrder(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config['project']['branch_main'] = 'main';
-        $executor->config['project']['branch_prod'] = 'prod';
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
+        $server = $this->server;
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        $this->assertSame(0, $code, $output);
+        $this->assertStringContainsString("Deployed 'test': aaaaaaa → bbbbbbb.", $output);
 
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnTrue();
+        $order = array_map(fn ($pattern) => $server->position($pattern), [
+            "/'artisan' 'down'/",
+            "/'git' 'fetch' 'origin'/",
+            "/'git' 'merge' '--no-edit' 'origin\\/main'/",
+            "/'git' 'push' 'origin' 'prod'/",
+            "/'artisan' 'cache:clear'/",
+            "/'artisan' 'up'/",
+        ]);
 
-        // deploy(): maintenance mode
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['php', 'artisan', 'down']]);
-
-        // deploy(): first cache clear
-        $ssh->shouldReceive('runAndPrint')
-            ->twice()
-            ->with([
-                ['php', 'artisan', 'route:clear'],
-                ['php', 'artisan', 'cache:clear'],
-            ]);
-
-        // fastDeploy() -> mergeDeploy(): fetch + merge
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['git', 'fetch'],
-                ['git', 'merge', 'origin/main'],
-            ])
-            ->andReturn('ok');
-
-        // mergeDeploy(): push configured branch_prod
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['git', 'push', 'origin', 'prod']]);
-
-        // deploy(): bring app out of maintenance mode
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['php', 'artisan', 'up']]);
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('prod')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('prod');
-
-        $cmd->shouldReceive('option')->with('fast')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('composer')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('migrate')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::SUCCESS, $result);
+        $this->assertNotContains(null, $order, 'All steps ran: ' . implode("\n", $server->commands));
+        $sorted = $order;
+        sort($sorted);
+        $this->assertSame($sorted, $order, 'Steps ran in order');
+        $this->assertFalse($server->ran('/composer/'), 'composer.lock did not change');
+        $this->assertFalse($server->ran('/winter:up/'));
     }
 
-    /**
-     * Test function: handle / fastDeploy / pullDeploy / afterDeploy
-     * Fast deploy in pull mode succeeds and triggers composer install and migrations
-     * when the git output contains "composer.lock" (without requiring options).
-     */
-    public function testFastPullDeploySuccessTriggersComposerAndMigrateFromComposerLock(): void
+    public function testComposerAndMigrationsRunWhenTheLockFileChanged(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config['project']['branch_main'] = false; // pull-based deploy
+        $this->useConnection(['project' => ['php' => 'php8.4', 'composer' => 'php8.4 /usr/bin/composer']]);
+        $this->server->results["/'diff' '--name-only' 'aaaaaaa' 'bbbbbbb'/"] = new CommandResult(0, "composer.lock\nplugins/a.php\n");
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
 
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnTrue();
-
-        // pullDeploy: git pull
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['git', 'pull']])
-            ->andReturn('Updated files including composer.lock');
-
-        // afterDeploy: composer install
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['composer', 'install', '--no-dev'],
-            ])
-            ->andReturn('composer done');
-
-        // afterDeploy: migrations
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['php', 'artisan', 'winter:up'],
-            ])
-            ->andReturn('migrated');
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('prod')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('prod');
-
-        $cmd->shouldReceive('option')->with('fast')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('composer')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('migrate')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::SUCCESS, $result);
+        $this->assertSame(0, $code, $output);
+        $this->assertTrue($this->server->ran("/'php8.4' '\\/usr\\/bin\\/composer' 'install' '--no-dev' '--no-interaction' '--prefer-dist' '--optimize-autoloader'/"));
+        $this->assertTrue($this->server->ran("/'php8.4' 'artisan' 'winter:up' '--no-interaction'/"));
+        $this->assertLessThan($this->server->position('/winter:up/'), $this->server->position('/composer/'));
     }
 
-    /**
-     * Test function: handle / fastDeploy / pullDeploy / afterDeploy
-     * Fast deploy in pull mode should also trigger composer and migrations
-     * when the --composer option is explicitly provided, even if the output
-     * does not contain "composer.lock".
-     */
-    public function testFastPullDeployComposerAndMigrateTriggeredByOptions(): void
+    public function testAFailedMergeIsAbortedAndTheSiteComesBackUp(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config['project']['branch_main'] = false;
+        $this->server->results["/'git' 'merge' '--no-edit'/"] = new CommandResult(1, "CONFLICT (content): Merge conflict in a.txt\n");
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
 
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnTrue();
-
-        // pullDeploy: git pull without composer.lock in output
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['git', 'pull']])
-            ->andReturn('Updated files without lock');
-
-        // afterDeploy: composer install due to option('composer') === true
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['composer', 'install', '--no-dev'],
-            ])
-            ->andReturn('composer done');
-
-        // afterDeploy: migrations also triggered because option('composer') is true
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['php', 'artisan', 'winter:up'],
-            ])
-            ->andReturn('migrated');
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('prod')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('prod');
-
-        $cmd->shouldReceive('option')->with('fast')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('composer')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('migrate')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::SUCCESS, $result);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('the merge was aborted and the server is unchanged', $output);
+        $this->assertTrue($this->server->ran("/'git' 'merge' '--abort'/"));
+        $this->assertTrue($this->server->ran("/'artisan' 'up'/"), 'Maintenance mode is always ended');
+        $this->assertFalse($this->server->ran("/'git' 'push'/"));
     }
 
-    /**
-     * Test function: handle / fastDeploy / pullDeploy
-     * When a pull-based deploy (branch_main = false) has a merge CONFLICT,
-     * the command should reset hard, report the failure, and return FAILURE.
-     */
-    public function testPullDeployConflictResetsAndFails(): void
+    public function testAnyFailingStepStillEndsMaintenanceMode(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config['project']['branch_main'] = false;
+        $this->server->results["/'cache:clear'/"] = new CommandResult(1, '', 'Cache store is not writable');
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
 
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnTrue();
-
-        // pullDeploy: git pull returns conflict text
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['git', 'pull']])
-            ->andReturn('CONFLICT (content): Merge conflict');
-
-        // pullDeploy: hard reset after conflict
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['git', 'reset', '--hard']])
-            ->andReturn('reset done');
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('prod')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('prod');
-
-        $cmd->shouldReceive('option')->with('fast')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('composer')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('migrate')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('error')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::FAILURE, $result);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('php artisan cache:clear failed (exit code 1)', $output);
+        $this->assertGreaterThan($this->server->position("/'cache:clear'/"), $this->server->position("/'artisan' 'up'/"));
     }
 
-    /**
-     * Test function: handle / fastDeploy / mergeDeploy / handleOwnership / wrapSudo
-     * For merge-based fast deploy with sudo and configured permissions:
-     * - root_user ownership is applied with sudo,
-     * - git fetch/merge is performed,
-     * - the configured branch is pushed,
-     * - web_folders ownership is applied with sudo for each folder, and the deployment returns SUCCESS.
-     */
-    public function testMergeDeployPushesBranchAndHandlesOwnershipWithSudo(): void
+    public function testRefusesOnTheWrongBranchOrWithChanges(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config = [
-            'project' => [
-                'branch_main' => 'main',
-                'branch_prod' => 'prod',
-            ],
-            'permissions' => [
-                'root_user'   => 'root:root',
-                'web_user'    => 'www-data:www-data',
-                'web_folders' => 'storage, public/uploads',
-            ],
-        ];
+        $this->server->results["/'rev-parse' '--abbrev-ref' 'HEAD'/"] = new CommandResult(0, "main\n");
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString("on branch 'main', but 'prod' is configured", $output);
+        $this->assertFalse($this->server->ran('/artisan/'), 'Nothing was changed');
 
-        $ssh->shouldReceive('remoteIsClean')->once()->andReturnTrue();
+        $this->server->commands = [];
+        $this->server->results["/'rev-parse' '--abbrev-ref' 'HEAD'/"] = new CommandResult(0, "prod\n");
+        $this->server->results["/'status' '--porcelain'$/"] = new CommandResult(0, " M themes/demo/pages/home.htm\n");
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test']);
 
-        // fastDeploy: handle root_user ownership with sudo chown . -R
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['sudo', 'chown', 'root:root', '-R', '.'],
-            ]);
-
-        // mergeDeploy: fetch + merge
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['git', 'fetch'],
-                ['git', 'merge', 'origin/main'],
-            ])
-            ->andReturn('ok');
-
-        // mergeDeploy: push configured branch
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([
-                ['git', 'push', 'origin', 'prod'],
-            ]);
-
-        // handleOwnership is called twice:
-        // - once inside afterDeploy(),
-        // - once at the end of handle().
-        // Each time it chowns both 'storage' and 'public/uploads'.
-        $ssh->shouldReceive('runAndPrint')
-            ->twice()
-            ->with([
-                ['sudo', 'chown', 'www-data:www-data', '-R', 'storage'],
-            ]);
-        $ssh->shouldReceive('runAndPrint')
-            ->twice()
-            ->with([
-                ['sudo', 'chown', 'www-data:www-data', '-R', 'public/uploads'],
-            ]);
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-        $cmd->shouldReceive('createExecutor')->once()->with('prod')->andReturn($executor);
-        $cmd->shouldReceive('argument')->with('server')->andReturn('prod');
-
-        $cmd->shouldReceive('option')->with('fast')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('sudo')->andReturnTrue();
-        $cmd->shouldReceive('option')->with('composer')->andReturnFalse();
-        $cmd->shouldReceive('option')->with('migrate')->andReturnFalse();
-
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('info')->atLeast()->once();
-
-        $result = $cmd->handle();
-
-        $this->assertSame(ProjectDeploy::SUCCESS, $result);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('syncops:project-pull test', $output);
+        $this->assertFalse($this->server->ran('/artisan/'));
     }
 
-    /**
-     * Test function: handleOwnership
-     * When the "web_folders" config value is provided as an array instead of a comma-separated string,
-     * the method should still iterate over all folders, apply chown for each, and behave identically.
-     */
-    public function testHandleOwnershipSupportsArrayWebFolders(): void
+    public function testPullModeAndFastAndSudo(): void
     {
-        $executor = new RemoteExecutorStub();
-        $executor->config = [
-            'permissions' => [
-                'web_user'    => 'www-data:www-data',
-                'web_folders' => ['storage', 'public/uploads'],
-            ],
-        ];
+        $this->useConnection(['project' => ['branch_main' => false]]);
 
-        $ssh = Mockery::mock(SshExecutor::class);
-        $executor->ssh = $ssh;
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test', '--fast', '--sudo']);
 
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['chown', 'www-data:www-data', '-R', 'storage']]);
-        $ssh->shouldReceive('runAndPrint')
-            ->once()
-            ->with([['chown', 'www-data:www-data', '-R', 'public/uploads']]);
-
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
-
-        $cmd->shouldReceive('line')->atLeast()->once();
-        $cmd->shouldReceive('newLine')->atLeast()->once();
-
-        // Call handleOwnership directly via a closure
-        (function () use ($executor) {
-            $this->handleOwnership($executor, false);
-        })->call($cmd);
-
-        $this->assertTrue(true);
+        $this->assertSame(0, $code, $output);
+        $this->assertTrue($this->server->ran("/'git' 'pull' '--no-edit'/"));
+        $this->assertFalse($this->server->ran("/'git' 'merge'/"));
+        $this->assertFalse($this->server->ran("/'down'/"), '--fast: no maintenance mode');
+        $this->assertTrue($this->server->ran("/'sudo' '-n' 'php' 'artisan' 'cache:clear'/"));
     }
 
-    /**
-     * Test function: handle
-     * If an exception (e.g. during executor creation or remote calls) is thrown,
-     * handle() should catch it, print error messages, and return FAILURE.
-     */
-    public function testHandleCatchesExceptionAndReturnsFailure(): void
+    public function testComposerFileModeChangesAreRestored(): void
     {
-        $cmd = Mockery::mock(ProjectDeploy::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $this->server->results["/'diff' '--summary'/"] = new CommandResult(0, " mode change 100644 => 100755 modules/a.js\n mode change 100644 => 100755 modules/b.js\n");
+        $this->server->results["/'core.fileMode=false' 'diff'/"] = new CommandResult(0, "modules/b.js\n");
 
-        $cmd->shouldReceive('argument')->with('server')->andReturn('broken');
-        $cmd->shouldReceive('createExecutor')
-            ->once()
-            ->with('broken')
-            ->andThrow(new \RuntimeException('connection failed'));
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test', '--composer']);
 
-        $cmd->shouldReceive('error')->atLeast()->once();
-        $cmd->shouldReceive('newLine')->zeroOrMoreTimes();
-        $cmd->shouldReceive('line')->zeroOrMoreTimes();
+        $this->assertSame(0, $code, $output);
+        $this->assertTrue($this->server->ran("/'git' 'checkout' '--' 'modules\\/a.js'$/"), 'Mode-only change restored');
+        $this->assertFalse($this->server->ran("/'checkout' '--' .*b\\.js/"), 'Content change kept');
+        $this->assertStringContainsString('Restored the Git file mode of 1 file(s)', $output);
+    }
 
-        // fast/sudo/composer/migrate options are not reached here, so no need to stub
+    public function testDryRunChangesNothing(): void
+    {
+        $this->server->results["/'HEAD\\.\\.\\.origin\\/main'/"] = new CommandResult(0, "composer.lock\n");
 
-        $result = $cmd->handle();
+        [$code, $output] = $this->runCommand('syncops:project-deploy', ['test', '--dry-run']);
 
-        $this->assertSame(ProjectDeploy::FAILURE, $result);
+        $this->assertSame(0, $code, $output);
+        $this->assertStringContainsString('1 file(s) incoming from origin/main', $output);
+        $this->assertStringContainsString('composer install --no-dev', $output);
+        $this->assertStringNotContainsString('(skipped: composer.lock unchanged)', $output);
+
+        foreach (['down', 'merge', 'push', 'install', 'up'] as $word) {
+            $this->assertFalse($this->server->ran("/'{$word}'/"), "Dry run ran '{$word}'");
+        }
     }
 }

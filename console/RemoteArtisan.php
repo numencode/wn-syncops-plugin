@@ -1,55 +1,91 @@
-<?php namespace NumenCode\SyncOps\Console;
+<?php
 
-use Illuminate\Console\Command;
-use NumenCode\SyncOps\Traits\RunsRemoteCommands;
+declare(strict_types=1);
 
-class RemoteArtisan extends Command
+namespace NumenCode\SyncOps\Console;
+
+use NumenCode\SyncOps\Classes\SyncOpsCommand;
+use ReflectionProperty;
+use Symfony\Component\Console\Input\ArgvInput;
+
+/**
+ * Runs an artisan command on a server. Everything after the server name is passed on unchanged, including
+ * options (e.g. `syncops:remote-artisan production cache:clear --force`).
+ *
+ * Winter loads no plugins when "migrate", "winter:up", "winter:update", "winter:env", "winter:version" or
+ * "winter:manifest" appears on the command line, so these can't be run this way; use syncops:remote-migrate
+ * and syncops:remote-health instead.
+ */
+class RemoteArtisan extends SyncOpsCommand
 {
-    use RunsRemoteCommands;
-
     protected $signature = 'syncops:remote-artisan
-        {server          : The name of the remote server connection as defined in syncops.php}
-        {artisanCommand* : The artisan command and arguments to run on the remote server}';
+        {server          : The connection name from config/syncops.php}
+        {artisanCommand* : The artisan command with its arguments and options}';
 
-    protected $description = 'Run a "php artisan" command on a remote server and stream the output locally.';
+    protected $description = 'Run an artisan command on a server (all arguments and options are passed on).';
 
-    public function handle(): int
+    public function __construct()
     {
+        parent::__construct();
+
+        // Options of the remote command (e.g. --force) are not options of this command
+        $this->ignoreValidationErrors();
+    }
+
+    protected function process(): int
+    {
+        $name = (string) $this->argument('server');
+        $arguments = $this->remoteArguments($name);
+
+        if ($arguments === []) {
+            $this->error('✘ Give the artisan command to run, e.g. `syncops:remote-artisan production cache:clear`.');
+
+            return self::FAILURE;
+        }
+
+        if (!in_array('--no-interaction', $arguments, true) && !in_array('-n', $arguments, true)) {
+            $arguments[] = '--no-interaction';
+        }
+
+        $server = $this->server($name);
+        $command = [...$server->php(), 'artisan', ...$arguments];
+
+        $this->comment('$ ' . implode(' ', $command));
         $this->newLine();
 
-        $server = $this->argument('server');
-        $artisanParts = (array) $this->argument('artisanCommand');
+        $result = $server->run($command, $this->liveOutput());
+        $this->newLine();
 
-        if (empty($artisanParts)) {
-            $this->error('✘ No artisan command provided. Please specify the artisan sub-command to run.');
-            return self::FAILURE;
+        if (!$result->successful()) {
+            $this->error("✘ The command failed on '{$name}' (exit code {$result->exitCode}).");
+
+            return $result->exitCode;
         }
 
-        // Build the full command: php artisan <args...>
-        $commandParts = array_merge(['php', 'artisan'], $artisanParts);
-        $prettyCommand = 'php artisan ' . implode(' ', $artisanParts);
+        $this->info('✔ Done.');
 
-        try {
-            $this->line("Connecting to remote server '{$server}'...");
-            $this->newLine();
+        return self::SUCCESS;
+    }
 
-            $this->line("Running remote artisan command:");
-            $this->comment($prettyCommand);
-            $this->newLine();
-
-            // This will echo the remote output directly (via SshExecutor::runAndPrint)
-            $this->runRemoteAndPrint($server, [$commandParts]);
-
-            $this->newLine();
-            $this->info('✔ Remote artisan command executed successfully.');
-
-            return self::SUCCESS;
-        } catch (\Throwable $e) {
-            $this->newLine();
-            $this->error("✘ Failed to run remote artisan command on server '{$server}':");
-            $this->error($e->getMessage());
-
-            return self::FAILURE;
+    /**
+     * The command line tokens after the server name, exactly as given.
+     *
+     * @return array<int, string>
+     */
+    protected function remoteArguments(string $server): array
+    {
+        if (!$this->input instanceof ArgvInput) {
+            return array_values((array) $this->argument('artisanCommand'));
         }
+
+        $tokens = (new ReflectionProperty(ArgvInput::class, 'tokens'))->getValue($this->input);
+        $position = array_search($server, $tokens, true);
+        $arguments = $position === false ? [] : array_slice($tokens, $position + 1);
+
+        if (($arguments[0] ?? null) === '--') {
+            array_shift($arguments);
+        }
+
+        return array_values(array_map('strval', $arguments));
     }
 }

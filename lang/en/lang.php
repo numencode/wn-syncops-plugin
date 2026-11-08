@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'plugin'    => [
+    'plugin' => [
         'name'        => 'SyncOps',
-        'description' => 'NumenCode SyncOps for Winter CMS.',
+        'description' => 'Deployment, synchronization and backup commands for Winter CMS.',
     ],
 ];

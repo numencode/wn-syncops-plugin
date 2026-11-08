@@ -1,14 +1,22 @@
 <?php
 
+/*
+ * SyncOps configuration. Publish it to config/syncops.php with:
+ *
+ *     php artisan vendor:publish --tag=syncops-config
+ *
+ * Keep credentials in the .env file. Every key except the SSH host, username, a key or password and the
+ * project path is optional.
+ */
+
 return [
 
     /*
     |--------------------------------------------------------------------------
-    | Timestamp Format
+    | Timestamp format
     |--------------------------------------------------------------------------
     |
-    | Here you can define the default timestamp format, used for naming files,
-    | such as database dump files, archive files, etc.
+    | Used for the names of database dumps and project archives (PHP date format).
     |
     */
 
@@ -16,92 +24,147 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Remote Server Connections
+    | Local backups
     |--------------------------------------------------------------------------
     |
-    | Here you can define the remote servers that SyncOps will connect to for
-    | deployment, synchronization, and database commands. Each connection is
-    | identified by a unique name (e.g. "production", "staging") and contains
-    | the SSH and project details required for remote operations.
+    | "backup_path": where kept dumps and archives are stored locally (the --folder option adds a subfolder).
+    | Keep it outside storage/app, which media-pull and media-backup synchronize.
+    |
+    | "backup_keep": how many backups db-backup and project-backup keep in their target folder (locally and
+    | in the cloud); older ones are deleted. Empty keeps all. The --keep option overrides it.
+    |
+    */
+
+    'backup_path' => storage_path('backups'),
+
+    'backup_keep' => env('SYNCOPS_BACKUP_KEEP'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media synchronization
+    |--------------------------------------------------------------------------
+    |
+    | Paths in storage/app that media-pull and media-backup skip: folder names anywhere in the path. Files
+    | starting with a dot (.gitignore, ...) are always skipped.
+    |
+    */
+
+    'media' => [
+        'exclude' => ['resized', 'thumb', 'temp'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Project backup
+    |--------------------------------------------------------------------------
+    |
+    | Paths (relative to the project root) that project-backup leaves out of the archive. The .env file is
+    | left out unless the --include-env option is given. The --exclude option adds more paths.
+    |
+    */
+
+    'backup' => [
+        'exclude' => [
+            'vendor',
+            'node_modules',
+            'storage/framework/cache',
+            'storage/framework/sessions',
+            'storage/framework/views',
+            'storage/temp',
+            'storage/backups',
+            'storage/app/resized',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Local database clients
+    |--------------------------------------------------------------------------
+    |
+    | The mysql and mysqldump (or mariadb, mariadb-dump) binaries on this machine, used by db-pull and
+    | db-backup. By default they are taken from the PATH.
+    |
+    */
+
+    'local' => [
+        'mysql'     => env('SYNCOPS_MYSQL', 'mysql'),
+        'mysqldump' => env('SYNCOPS_MYSQLDUMP', 'mysqldump'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Remote servers
+    |--------------------------------------------------------------------------
+    |
+    | One entry per server, named e.g. "production" or "staging"; the name is the {server} argument of the
+    | commands.
     |
     */
 
     'connections' => [
         'production' => [
             /*
-            |--------------------------------------------------------------------------
-            | SSH Credentials
-            |--------------------------------------------------------------------------
-            |
-            | Provide the SSH connection details for the server. You can use either
-            | password authentication or a private key. Values are read from your
-            | environment file for security.
-            |
-            */
+             * SSH connection. Use a private key (recommended) or a password.
+             *
+             * "host_fingerprint" pins the server's host key (format "SHA256:…", as shown by
+             * `ssh-keygen -lf` or `php artisan syncops:validate --connect`). When it is set, SyncOps refuses
+             * to connect to a server with a different key.
+             *
+             * "timeout" limits each remote command in seconds (0 = no limit).
+             */
             'ssh' => [
-                'host'     => env('SYNCOPS_PRODUCTION_HOST', ''),     // Remote server host (IP or domain)
-                'port'     => env('SYNCOPS_PRODUCTION_PORT', 22),     // SSH port
-                'username' => env('SYNCOPS_PRODUCTION_USERNAME', ''), // SSH username
-                'password' => env('SYNCOPS_PRODUCTION_PASSWORD', ''), // Optional, not needed with private key
-                'key_path' => env('SYNCOPS_PRODUCTION_KEY', ''),      // Optional, path to private key file
+                'host'             => env('SYNCOPS_PRODUCTION_HOST'),
+                'port'             => env('SYNCOPS_PRODUCTION_PORT', 22),
+                'username'         => env('SYNCOPS_PRODUCTION_USERNAME'),
+                'password'         => env('SYNCOPS_PRODUCTION_PASSWORD'),
+                'key_path'         => env('SYNCOPS_PRODUCTION_KEY'),
+                'key_passphrase'   => env('SYNCOPS_PRODUCTION_KEY_PASSPHRASE'),
+                'host_fingerprint' => env('SYNCOPS_PRODUCTION_HOST_FINGERPRINT'),
+                'timeout'          => env('SYNCOPS_PRODUCTION_TIMEOUT', 0),
             ],
 
             /*
-            |--------------------------------------------------------------------------
-            | Project Settings
-            |--------------------------------------------------------------------------
-            |
-            | Define the project root path on the remote server and the branch names
-            | used for deployment (production branch) and main development tracking.
-            |
-            */
+             * The project on the server.
+             *
+             * "branch_prod" is the branch checked out on the server, "branch_main" the branch that
+             * project-deploy merges into it (set it to false to deploy with "git pull" instead).
+             *
+             * "php" and "composer" are the binaries used on the server, e.g. "php8.4" and
+             * "php8.4 /usr/bin/composer" when the server's default PHP is a different version.
+             *
+             * "temp_path" is where temporary files (database dumps) are created; default the system's
+             * temporary directory.
+             */
             'project' => [
-                'path'        => rtrim(env('SYNCOPS_PRODUCTION_PATH', ''), '/'), // Project root path
-                'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'),  // Production branch name
-                'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),  // Development branch name
+                'path'        => env('SYNCOPS_PRODUCTION_PATH'),
+                'branch_prod' => env('SYNCOPS_PRODUCTION_BRANCH_PROD', 'prod'),
+                'branch_main' => env('SYNCOPS_PRODUCTION_BRANCH_MAIN', 'main'),
+                'php'         => env('SYNCOPS_PRODUCTION_PHP', 'php'),
+                'composer'    => env('SYNCOPS_PRODUCTION_COMPOSER', 'composer'),
+                'temp_path'   => env('SYNCOPS_PRODUCTION_TEMP_PATH'),
             ],
 
             /*
-            |--------------------------------------------------------------------------
-            | Permissions (Optional)
-            |--------------------------------------------------------------------------
-            |
-            | These are only required if multiple users have different access rights
-            | on the server. SyncOps will adjust ownership and permissions where
-            | needed (e.g. for web server writable folders).
-            |
-            */
+             * Optional file ownership after a deployment, e.g. "www-data:www-data" for the folders the web
+             * server writes to. Needs sudo without a password when the SSH user is not the owner.
+             */
             'permissions' => [
-                'root_user'   => env('SYNCOPS_PRODUCTION_ROOT_USER'), // Root user and group, e.g. `root:root`
-                'web_user'    => env('SYNCOPS_PRODUCTION_WEB_USER'),  // Web user and group, e.g. `www-data:www-data`
-                'web_folders' => ['storage', 'themes'],               // Folders owned by web user
+                'root_user'   => env('SYNCOPS_PRODUCTION_ROOT_USER'),
+                'web_user'    => env('SYNCOPS_PRODUCTION_WEB_USER'),
+                'web_folders' => ['storage', 'themes'],
             ],
 
-           /*
-           |--------------------------------------------------------------------------
-           | Remote Database (Optional)
-           |--------------------------------------------------------------------------
-           |
-           | Database credentials are only required when using commands like
-           | `syncops:db-pull`. This allows SyncOps to connect to the remote
-           | database, create a dump, and import it into your local database.
-           |
-           | By default, the dump will include all tables from the remote
-           | database. If you only want to pull specific tables (for example,
-           | excluding large log tables or sensitive user data), list them
-           | in the "tables" array below. Only those tables will be included
-           | in the dump and imported locally.
-           |
-           */
-            'database'    => [
-                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'), // Database name
-                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'), // Database username
-                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'), // Database password
-                'tables'   => [
-                    // Example: only sync custom plugin tables
-                    // 'custom_plugin_orders',
-                    // 'custom_plugin_customers',
-                ],
+            /*
+             * The server's database, for db-pull and remote-health. "tables" limits db-pull to these tables
+             * (all tables when empty; the --tables option overrides it).
+             */
+            'database' => [
+                'database' => env('SYNCOPS_PRODUCTION_DB_DATABASE'),
+                'username' => env('SYNCOPS_PRODUCTION_DB_USERNAME'),
+                'password' => env('SYNCOPS_PRODUCTION_DB_PASSWORD'),
+                'host'     => env('SYNCOPS_PRODUCTION_DB_HOST'),
+                'port'     => env('SYNCOPS_PRODUCTION_DB_PORT'),
+                'tables'   => [],
             ],
         ],
     ],

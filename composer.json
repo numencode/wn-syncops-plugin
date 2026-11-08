@@ -1,9 +1,9 @@
 {
     "name": "numencode/wn-syncops-plugin",
-    "description": "NumenCode SyncOps plugin for Winter CMS",
+    "description": "Deployment, synchronization and backup commands for Winter CMS: deploy via Git, pull databases and media from a server over SSH, and back up databases, media and project files to cloud storage.",
     "type": "winter-plugin",
     "homepage": "https://www.numencode.com",
-    "keywords": ["winter cms", "winter", "plugin", "laravel", "numencode"],
+    "keywords": ["winter cms", "winter", "plugin", "laravel", "numencode", "deployment", "deploy", "sync", "backup", "ssh", "sftp", "mysql", "dropbox"],
     "license": "MIT",
     "support": {
         "issues": "https://github.com/numencode/wn-syncops-plugin/issues",
@@ -14,22 +14,30 @@
             "name": "Blaz Orazem",
             "email": "blaz@orazem.si",
             "homepage": "https://orazem.si/",
-            "role": "Founder"
+            "role": "Maintainer"
         }
     ],
     "require": {
-        "php": "^8.1",
-        "winter/storm": "^1.2",
+        "php": "^8.2",
+        "composer/installers": "^1.0 || ^2.0",
         "phpseclib/phpseclib": "^3.0"
+    },
+    "suggest": {
+        "numencode/wn-dropboxadapter-plugin": "Adds a Dropbox disk for the backup commands (db-backup, media-backup, project-backup)."
     },
     "autoload": {
         "psr-4": {
             "NumenCode\\SyncOps\\": ""
         }
     },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true
+        },
+        "sort-packages": true
+    },
     "extra": {
-        "installer-name": "syncops",
-        "installer-type": "winter-plugin"
+        "installer-name": "syncops"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

@@ -1,271 +1,130 @@
-<?php namespace NumenCode\SyncOps\Console;
+<?php
 
-use Illuminate\Console\Command;
-use NumenCode\SyncOps\Classes\RemoteExecutor;
+declare(strict_types=1);
 
-class RemoteHealth extends Command
+namespace NumenCode\SyncOps\Console;
+
+use NumenCode\SyncOps\Classes\DatabaseDump;
+use NumenCode\SyncOps\Classes\RemoteServer;
+use NumenCode\SyncOps\Classes\SyncOpsCommand;
+
+class RemoteHealth extends SyncOpsCommand
 {
     protected $signature = 'syncops:remote-health
-        {server : The name of the remote server}
-        {--full : Run extended checks (PHP extensions, database connectivity, artisan)}';
+        {server : The connection name from config/syncops.php}
+        {--full : Also list PHP extensions and test the database login}';
 
-    protected $description = 'Run a set of health checks on a remote server (system, PHP, database, Git, project path).';
+    protected $description = 'Show the health of a server: system, PHP, Composer, database and the project.';
 
-    public function handle(): int
+    protected bool $failed = false;
+
+    protected function process(): int
     {
+        $server = $this->server((string) $this->argument('server'));
+        $full = (bool) $this->option('full');
         $this->newLine();
 
-        $serverName = $this->argument('server');
-        $isFull = (bool) $this->option('full');
+        $this->section('System');
+        $this->check($server, 'Uptime', ['uptime']);
+        $this->check($server, 'Disk (project)', ['df', '-h', '.'], static fn (string $out) => trim(explode("\n", trim($out))[1] ?? $out));
 
-        try {
-            $this->line("Checking remote health for server '{$serverName}'...");
-            $this->newLine();
+        $this->section('PHP and Composer');
+        $this->check($server, 'PHP', [...$server->php(), '-v'], static fn (string $out) => strtok($out, "\n") ?: '');
+        $this->check($server, 'Composer', [...$server->composer(), '--version', '--no-ansi'], static fn (string $out) => strtok($out, "\n") ?: '');
 
-            $executor = $this->createExecutor($serverName);
+        if ($full) {
+            $this->check($server, 'Extensions', [...$server->php(), '-r', 'echo implode(", ", get_loaded_extensions());']);
+        }
 
-            $this->checkSystem($executor);
-            $this->newLine();
+        $this->section('Database');
+        $this->checkDatabase($server, $full);
 
-            $this->checkPhp($executor, $isFull);
-            $this->newLine();
+        $this->section('Project');
+        $this->line('  Path: ' . $server->projectPath());
+        $this->check($server, 'Git branch', ['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+        $status = $server->run(['git', 'status', '--porcelain']);
 
-            $this->checkDatabase($executor, $isFull);
-            $this->newLine();
+        if ($status->successful()) {
+            $changes = trim($status->output) === '' ? 0 : count(explode("\n", trim($status->output)));
+            $changes === 0
+                ? $this->info('  ✔ Git: working tree is clean')
+                : $this->warn("  ⚠ Git: {$changes} uncommitted change(s); project-deploy will refuse to run (see project-pull)");
+        }
 
-            $this->checkProject($executor);
-            $this->newLine();
+        $this->check($server, 'Framework', [...$server->php(), 'artisan', '--version', '--no-ansi']);
+        $this->check($server, 'Winter CMS', [...$server->php(), 'artisan', 'winter:version', '--no-ansi'], static function (string $out): string {
+            preg_match('/Winter CMS build ([\d.]+)/', $out, $match);
 
-            $this->info("✔ Remote health check completed for '{$serverName}'. See details above.");
-            return self::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error("✘ Failed to run remote health check for '{$serverName}':");
-            $this->error($e->getMessage());
+            return isset($match[1]) ? rtrim($match[1], '.') : trim($out);
+        });
+
+        $this->newLine();
+
+        if ($this->failed) {
+            $this->error('✘ Some checks failed, see above.');
+
             return self::FAILURE;
         }
+
+        $this->info('✔ All checks passed.');
+
+        return self::SUCCESS;
+    }
+
+    protected function section(string $title): void
+    {
+        $this->line("<options=bold>{$title}</>");
     }
 
     /**
-     * Basic OS / system-level checks (uptime, disk usage).
+     * @param array<int, string> $command
      */
-    protected function checkSystem(RemoteExecutor $executor): void
+    protected function check(RemoteServer $server, string $label, array $command, ?callable $format = null): void
     {
-        $this->line('System checks:');
+        $result = $server->run($command);
 
-        try {
-            $uptime = $executor->ssh->runAndGet(['uptime']);
-            $this->comment('  Uptime: ' . $uptime);
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to retrieve uptime: {$e->getMessage()}");
-        }
+        if ($result->successful()) {
+            $value = trim($format !== null ? $format($result->output) : $result->output);
+            $this->info("  ✔ {$label}: {$value}");
 
-        try {
-            $df = $executor->ssh->runAndGet(['df', '-h']);
-            $this->comment('  Disk usage (df -h):');
-            $this->line($df);
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to retrieve disk usage: {$e->getMessage()}");
-        }
-    }
-
-    /**
-     * PHP runtime checks (version, and optionally extensions in full mode).
-     */
-    protected function checkPhp(RemoteExecutor $executor, bool $isFull): void
-    {
-        $this->line('PHP checks:');
-
-        try {
-            $phpVersion = $executor->ssh->runAndGet(['php', '-v']);
-            $this->comment('  Version: ' . $this->firstLine($phpVersion));
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to retrieve PHP version: {$e->getMessage()}");
             return;
         }
 
-        if ($isFull) {
-            try {
-                $modules = $executor->ssh->runAndGet(['php', '-m']);
-                $this->comment('  Loaded modules (php -m):');
-                $this->line($modules);
-            } catch (\Throwable $e) {
-                $this->warn("  Unable to retrieve PHP modules: {$e->getMessage()}");
-            }
-        }
+        $this->failed = true;
+        $this->error("  ✘ {$label}: " . $this->redactor->redact(trim($result->error ?: $result->output) ?: "exit code {$result->exitCode}"));
     }
 
-    /**
-     * Optional database checks (version + connection test, only if database config is present).
-     */
-    protected function checkDatabase(RemoteExecutor $executor, bool $isFull): void
+    protected function checkDatabase(RemoteServer $server, bool $full): void
     {
-        if (empty($executor->config['database']['database'])) {
-            $this->line('Database checks:');
-            $this->comment('  No database configuration found in syncops connection. Skipping.');
+        $client = trim($server->runShell('command -v mariadb || command -v mysql', null, false)->output);
+
+        if ($client === '') {
+            $this->warn('  ⚠ No mariadb/mysql client found on the server.');
+
             return;
         }
 
-        $this->line('Database checks:');
+        $this->check($server, 'Client', [$client, '--version'], static fn (string $out) => trim($out));
+        $database = $server->config->database;
 
-        $client = 'mysql';
+        if ($database === null) {
+            $this->comment('  No database configured for this connection (database.database, database.username).');
 
-        try {
-            [$client, $versionOutput] = $this->detectDatabaseClient($executor);
-            $label = $client === 'mariadb' ? 'MariaDB' : 'MySQL';
-            $this->comment("  {$label} client: " . $this->firstLine($versionOutput));
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to retrieve MySQL/MariaDB version: {$e->getMessage()}");
             return;
         }
 
-        if (!$isFull) {
+        if (!$full) {
             return;
         }
 
-        $dbConfig = $executor->config['database'];
+        $temp = $server->makeTempDirectory();
+        $this->onCleanup(static fn () => $server->remove($temp));
+        $server->putContents($temp . '/client.cnf', DatabaseDump::optionFile($database));
 
-        if (empty($dbConfig['username'])) {
-            $this->comment('  Database connectivity check skipped (no username configured).');
-            return;
-        }
-
-        try {
-            // Build command as:
-            // MYSQL_PWD='password' mysql|mariadb -u'user' -e "SELECT 1" 'database'
-            $parts = [];
-
-            if (array_key_exists('password', $dbConfig) && $dbConfig['password'] !== '') {
-                // Safely escape for single-quoted shell string: 'foo' -> 'foo', but "a'b" -> 'a'"'"'b'
-                $escapedPwd = str_replace("'", "'\"'\"'", $dbConfig['password']);
-                $parts[] = "MYSQL_PWD='{$escapedPwd}'";
-            }
-
-            $parts[] = $client;
-
-            // Username
-            $parts[] = '-u' . escapeshellarg($dbConfig['username']);
-
-            // Probe query
-            $parts[] = '-e "SELECT 1"';
-
-            // Optional database name
-            if (!empty($dbConfig['database'])) {
-                $parts[] = escapeshellarg($dbConfig['database']);
-            }
-
-            $cmd = implode(' ', $parts);
-
-            $executor->ssh->runRawCommand($cmd);
-            $this->comment('  Database connectivity: OK (SELECT 1 succeeded).');
-        } catch (\Throwable $e) {
-            $this->warn("  Database connectivity check failed: {$e->getMessage()}");
-        }
-    }
-
-    /**
-     * Project-level checks (path, Git state, Laravel/Winter version).
-     */
-    protected function checkProject(RemoteExecutor $executor): void
-    {
-        $this->line('Project checks:');
-
-        // Project path / working directory
-        try {
-            $pwd = $executor->ssh->runAndGet(['pwd']);
-            $this->comment("  Working directory (pwd): {$pwd}");
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to confirm project path (pwd): {$e->getMessage()}");
-        }
-
-        // Git status
-        try {
-            $isClean = $executor->ssh->remoteIsClean();
-            $branch = $executor->ssh->runAndGet(['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
-
-            if ($isClean) {
-                $this->info("  Git: working tree is clean on branch '{$branch}'.");
-            } else {
-                $this->warn("  Git: working tree is NOT clean on branch '{$branch}'.");
-            }
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to retrieve Git status: {$e->getMessage()}");
-        }
-
-        // Laravel version check – non-fatal if it fails.
-        try {
-            $laravelVersion = $executor->ssh->runAndGet(['php', 'artisan', '--version']);
-            $this->comment("  Framework: {$laravelVersion}");
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to run 'php artisan --version': {$e->getMessage()}");
-        }
-
-        // Winter CMS version check – non-fatal if it fails.
-        try {
-            $winterRaw = $executor->ssh->runAndGet(['php', 'artisan', 'winter:version']);
-            $lines = preg_split('/\r\n|\r|\n/', trim($winterRaw));
-
-            $detectedLine = null;
-
-            foreach ($lines as $line) {
-                if (stripos($line, 'Detected Winter CMS build') !== false) {
-                    $detectedLine = $line;
-                    break;
-                }
-            }
-
-            // Fallback: if we didn't match, just use the last line.
-            if ($detectedLine === null && !empty($lines)) {
-                $detectedLine = end($lines);
-            }
-
-            // Strip leading asterisks and whitespace like "*** "
-            $detectedLine = ltrim($detectedLine ?? '', "* \t");
-
-            $this->comment("  Winter CMS: {$detectedLine}");
-        } catch (\Throwable $e) {
-            $this->warn("  Unable to run 'php artisan winter:version': {$e->getMessage()}");
-        }
-    }
-
-    /**
-     * Try to determine which client is available and return [clientName, versionOutput].
-     * Prefer "mariadb" when available, fall back to "mysql".
-     *
-     * @throws \Throwable when neither client is available or both fail.
-     */
-    protected function detectDatabaseClient(RemoteExecutor $executor): array
-    {
-        // Prefer mariadb when available, since "mysql" may be a deprecated alias.
-        try {
-            $output = $executor->ssh->runAndGet(['mariadb', '--version']);
-            if (trim($output) !== '') {
-                return ['mariadb', $output];
-            }
-        } catch (\Throwable $e) {
-            // Ignore and fall back to mysql
-        }
-
-        // Fallback to mysql – this covers true MySQL servers and legacy MariaDB aliases.
-        $output = $executor->ssh->runAndGet(['mysql', '--version']);
-
-        return ['mysql', $output];
-    }
-
-    /**
-     * Return the first line of a multi-line string.
-     */
-    protected function firstLine(string $text): string
-    {
-        $line = strtok($text, "\n");
-        return $line === false ? '' : $line;
-    }
-
-    /**
-     * Factory method for obtaining a RemoteExecutor instance.
-     * Kept protected so tests can override it.
-     */
-    protected function createExecutor(string $server): RemoteExecutor
-    {
-        return new RemoteExecutor($server);
+        $this->check(
+            $server,
+            "Login to '{$database['database']}'",
+            [$client, '--defaults-extra-file=' . $temp . '/client.cnf', '-N', '-e', 'SELECT VERSION()', $database['database']]
+        );
     }
 }

@@ -1,2 +1,6 @@
 1.0.1:
     - 'Initialize plugin'
+1.1.0:
+    - 'Remote artisan, remote health and validate commands'
+2.0.0:
+    - '!!! Security and reliability rewrite: renamed backup commands (db-backup, media-backup, project-commit), host key verification, credentials no longer on command lines, configurable PHP and Composer binaries, remote-migrate command. Requires PHP 8.2+. See the upgrade guide in CHANGELOG.md.'
