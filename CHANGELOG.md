@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-18
+
+### Fixed
+
+- Packagist's metadata for 2.0.0 referred to a different commit than the git tag. This release has the same code as
+  2.0.0 and is the version to install.
+
 ## [2.0.0] - 2026-11-08
 
 A security and reliability rewrite. It contains breaking changes – see [Upgrading from 1.x](#upgrading-from-1x).
@@ -124,7 +131,8 @@ A security and reliability rewrite. It contains breaking changes – see [Upgrad
 - Initial release: deployment via Git, database and media synchronization over SSH/SFTP, project backups and cloud
   storage uploads, permissions handling and `config/syncops.php`. Compatible with Winter CMS 1.2.8+ and PHP 8.1+.
 
-[Unreleased]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/numencode/wn-syncops-plugin/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/numencode/wn-syncops-plugin/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/numencode/wn-syncops-plugin/releases/tag/v1.0.0
