@@ -8,6 +8,7 @@ use NumenCode\SyncOps\Classes\CommandResult;
 use NumenCode\SyncOps\Classes\DatabaseDump;
 use NumenCode\SyncOps\Tests\SyncOpsTestCase;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 
 class DatabaseDumpTest extends SyncOpsTestCase
 {
@@ -41,6 +42,49 @@ class DatabaseDumpTest extends SyncOpsTestCase
 
         foreach ($this->server->commands as $command) {
             $this->assertStringNotContainsString('Secret', $command, 'No command contains the password');
+        }
+    }
+
+    public function testRemoteImportKeepsThePasswordOutOfTheCommand(): void
+    {
+        $this->server->results['/command -v mariadb/'] = new CommandResult(0, "/usr/bin/mariadb\n");
+
+        DatabaseDump::importRemote($this->server, '/tmp/syncops.test', '/tmp/syncops.test/push.sql.gz');
+
+        $this->assertStringContainsString('password="Secret\"Pa$$&word"', $this->server->written['/tmp/syncops.test/client.cnf']);
+        $this->assertSame(
+            "set -o pipefail; gunzip -c '/tmp/syncops.test/push.sql.gz' | " . DatabaseDump::SANDBOX_FILTER
+                . " | '/usr/bin/mariadb' '--defaults-extra-file=/tmp/syncops.test/client.cnf' 'remote_db'",
+            $this->server->commands[array_key_last($this->server->commands)]
+        );
+    }
+
+    public function testRemoteImportFailureNamesTheStep(): void
+    {
+        $this->server->results['/command -v/'] = new CommandResult(0, "/usr/bin/mysql\n");
+        $this->server->results['/pipefail/'] = new CommandResult(1, '', 'Unknown collation');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Importing into the database 'remote_db' on the server failed (exit code 1):\nUnknown collation");
+
+        DatabaseDump::importRemote($this->server, '/tmp/syncops.test', '/tmp/syncops.test/push.sql');
+    }
+
+    public function testSandboxFilterDropsOnlyTheFirstSandboxLine(): void
+    {
+        if (DIRECTORY_SEPARATOR === '\\' || !is_executable('/bin/sh')) {
+            $this->markTestSkipped('Needs a POSIX shell.');
+        }
+
+        foreach ([
+            "/*M!999999\\- enable the sandbox mode */\nCREATE TABLE a;\n/*M!999999 x */\n" => "CREATE TABLE a;\n/*M!999999 x */\n",
+            "CREATE TABLE a;\n" => "CREATE TABLE a;\n",
+        ] as $input => $expected) {
+            $process = Process::fromShellCommandline(DatabaseDump::SANDBOX_FILTER);
+            $process->setInput($input);
+            $process->run();
+
+            $this->assertSame($expected, $process->getOutput());
         }
     }
 

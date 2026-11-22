@@ -19,6 +19,7 @@ files to cloud storage such as Dropbox.
 | [`syncops:project-pull`](#bringing-server-changes-into-git) | Commit changes made on the server, push them and merge them locally | on your machine |
 | [`syncops:project-commit`](#bringing-server-changes-into-git) | Commit and push all changes of the project it runs in | on the server (scheduler) |
 | [`syncops:db-pull`](#pulling-a-database) | Copy a server's database into your local database | on your machine |
+| [`syncops:db-push`](#pushing-a-database) | Replace a server's database with your local database | on your machine |
 | [`syncops:media-pull`](#pulling-media-files) | Download a server's `storage/app` files | on your machine |
 | [`syncops:db-backup`](#backups) | Back up the database (and upload it to cloud storage) | on the server (scheduler) |
 | [`syncops:media-backup`](#backups) | Back up `storage/app` to cloud storage | on the server (scheduler) |
@@ -76,7 +77,7 @@ SYNCOPS_PRODUCTION_BRANCH_MAIN=main
 SYNCOPS_PRODUCTION_PHP=php8.4
 SYNCOPS_PRODUCTION_COMPOSER="php8.4 /usr/bin/composer"
 
-# The server's database (db-pull, remote-health)
+# The server's database (db-pull, db-push, remote-health)
 SYNCOPS_PRODUCTION_DB_DATABASE=example
 SYNCOPS_PRODUCTION_DB_USERNAME=example
 SYNCOPS_PRODUCTION_DB_PASSWORD="secret"
@@ -95,7 +96,7 @@ SYNCOPS_PRODUCTION_DB_PASSWORD="secret"
 | `project.php`, `project.composer` | The PHP and Composer commands on the server, e.g. `php8.4` and `php8.4 /usr/bin/composer` when the server's default PHP is another version. Commands over SSH don't load shell aliases. |
 | `project.temp_path` | Where temporary files (database dumps) are created on the server; default: the system's temporary directory. |
 | `permissions.root_user`, `permissions.web_user`, `permissions.web_folders` | Optional ownership changes after a deployment (see [Deploying](#deploying)). |
-| `database.*` | The server's database: `database`, `username`, `password`, optional `host`, `port`, and `tables` to limit `db-pull` to some tables. |
+| `database.*` | The server's database: `database`, `username`, `password`, optional `host`, `port`, and `tables` to limit `db-pull` and `db-push` to some tables. |
 
 Global settings:
 
@@ -168,6 +169,33 @@ imports it into your local database – **replacing it**, so the command asks fi
 | `--tables=a,b` | Only these tables (overrides the connection's `tables`). |
 | `--no-import`, `-i` | Only download the dump into `storage/backups/db-pull`. |
 | `--keep` | Also keep the dump after importing it. |
+| `--force` | Don't ask for confirmation. |
+
+## Pushing a database
+
+```bash
+php artisan syncops:db-push production
+```
+
+The reverse of `db-pull`, useful during development: dumps your local database, uploads it and imports it into the
+server's database – **replacing it**. Tables that exist only on the server are kept. Afterwards the server's cache is
+cleared.
+
+Before the import, the server's database is **backed up** into `storage/backups/db-push` on your machine, and the
+command prints how to restore it:
+
+```bash
+php artisan syncops:db-push production --file="storage/backups/db-push/2026-11-23_18_00_00_production_example.sql.gz"
+```
+
+The command asks you to type the connection name to confirm (`--force` skips the question; without a terminal it
+refuses to run without `--force`).
+
+| Option | Description |
+|---|---|
+| `--tables=a,b` | Only these tables (overrides the connection's `tables`). |
+| `--file=dump.sql.gz` | Push this dump (`.sql` or `.sql.gz`, e.g. from `db-backup` or `db-pull --no-import`) instead of the local database. |
+| `--no-backup` | Don't back up the server's database first. |
 | `--force` | Don't ask for confirmation. |
 
 ## Pulling media files

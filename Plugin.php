@@ -6,6 +6,7 @@ namespace NumenCode\SyncOps;
 
 use NumenCode\SyncOps\Console\DbBackup;
 use NumenCode\SyncOps\Console\DbPull;
+use NumenCode\SyncOps\Console\DbPush;
 use NumenCode\SyncOps\Console\MediaBackup;
 use NumenCode\SyncOps\Console\MediaPull;
 use NumenCode\SyncOps\Console\ProjectBackup;
@@ -25,6 +26,7 @@ class Plugin extends PluginBase
      */
     public const COMMANDS = [
         'syncops.db_pull'        => DbPull::class,
+        'syncops.db_push'        => DbPush::class,
         'syncops.db_backup'      => DbBackup::class,
         'syncops.media_pull'     => MediaPull::class,
         'syncops.media_backup'   => MediaBackup::class,

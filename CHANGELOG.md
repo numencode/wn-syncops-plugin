@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`syncops:db-push {server}`**, the reverse of `db-pull`: replaces a server's database with the local database
+  (or with a dump file, `--file`). The server's database is backed up into `storage/backups/db-push` first
+  (`--no-backup` skips it), the connection name must be typed to confirm (`--force` skips it), `--tables` limits it
+  to some tables, and the server's cache is cleared afterwards. Note: in 1.x, `db-push` was the name of today's
+  `db-backup`; an old scheduler entry `syncops:db-push dropbox` now fails (unknown connection) instead of making a
+  backup.
+
 ## [2.0.1] - 2026-11-18
 
 ### Fixed

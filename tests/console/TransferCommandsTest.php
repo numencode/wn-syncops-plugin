@@ -10,7 +10,7 @@ use NumenCode\SyncOps\Classes\CommandResult;
 use NumenCode\SyncOps\Tests\SyncOpsTestCase;
 
 /**
- * db-pull, media-pull, media-backup and project-backup.
+ * db-pull, db-push, media-pull, media-backup and project-backup.
  */
 class TransferCommandsTest extends SyncOpsTestCase
 {
@@ -52,6 +52,69 @@ class TransferCommandsTest extends SyncOpsTestCase
         $this->assertSame('-- dump', gzdecode((string) file_get_contents($file)));
         $this->assertTrue($this->server->ran("/'remote_db' 'users' 'posts' \\|/"), '--tables');
         $this->assertSame(['/tmp/syncops.test'], $this->server->removed, 'The remote temporary directory is removed');
+    }
+
+    public function testDbPushNeedsConfirmationToReplaceTheServerDatabase(): void
+    {
+        $file = $this->dumpFile('push.sql.gz', gzencode('-- local dump'));
+
+        [$code, $output] = $this->runCommand('syncops:db-push', ['test', '--file=' . $file]);
+
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('add --force', $output);
+        $this->assertSame([], $this->server->commands, 'Nothing ran on the server');
+    }
+
+    public function testDbPushBacksUpTheServerDatabaseThenImportsTheDump(): void
+    {
+        $this->server->results['/command -v mariadb-dump/'] = new CommandResult(0, "/usr/bin/mariadb-dump\n");
+        $this->server->results['/command -v mariadb /'] = new CommandResult(0, "/usr/bin/mariadb\n");
+        $this->server->files['/tmp/syncops.test/dump.sql.gz'] = gzencode('-- server dump');
+        $file = $this->dumpFile('push.sql.gz', gzencode('-- local dump'));
+
+        [$code, $output] = $this->runCommand('syncops:db-push', ['test', '--file=' . $file, '--force', '--timestamp=Ymd']);
+
+        $this->assertSame(0, $code, $output);
+
+        // The server's database is backed up locally first, and the output says how to restore it
+        $backup = config('syncops.backup_path') . DIRECTORY_SEPARATOR . 'db-push' . DIRECTORY_SEPARATOR . now()->format('Ymd') . '_test_remote_db.sql.gz';
+        $this->assertFileExists($backup);
+        $this->assertSame('-- server dump', gzdecode((string) file_get_contents($backup)));
+        $this->assertStringContainsString('syncops:db-push test --file=', $output);
+
+        // Then the dump is uploaded and imported (password only in the option file), then the cache is cleared
+        $this->assertSame(gzencode('-- local dump'), $this->server->written['/tmp/syncops.test/push.sql.gz']);
+        $import = $this->server->position("/gunzip -c '\\/tmp\\/syncops.test\\/push.sql.gz' \\| sed .* \\| '\\/usr\\/bin\\/mariadb' '--defaults-extra-file=\\/tmp\\/syncops.test\\/client.cnf' 'remote_db'/");
+        $this->assertNotNull($import, 'Import command');
+        $this->assertGreaterThan($this->server->position('/mariadb-dump/'), $import, 'Backup before the import');
+        $this->assertGreaterThan($import, $this->server->position("/'artisan' 'cache:clear'/"));
+        $this->assertStringNotContainsString('Pa$$', implode("\n", $this->server->commands));
+        $this->assertContains('/tmp/syncops.test', $this->server->removed, 'The remote temporary directory is removed');
+    }
+
+    public function testDbPushWithoutBackupPushesAPlainSqlFile(): void
+    {
+        $file = $this->dumpFile('push.sql', '-- plain');
+
+        [$code, $output] = $this->runCommand('syncops:db-push', ['test', '--file=' . $file, '--force', '--no-backup']);
+
+        $this->assertSame(0, $code, $output);
+        $this->assertFalse($this->server->ran('/mysqldump|mariadb-dump/'), 'No backup');
+        $this->assertTrue($this->server->ran("/^set -o pipefail; cat '\\/tmp\\/syncops.test\\/push.sql' \\|/"));
+    }
+
+    public function testDbPushRejectsTablesWithAFileAndMissingFiles(): void
+    {
+        $file = $this->dumpFile('push.sql', '-- plain');
+
+        [$code, $output] = $this->runCommand('syncops:db-push', ['test', '--file=' . $file, '--tables=users', '--force']);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString("--tables can't be combined with --file", $output);
+
+        [$code, $output] = $this->runCommand('syncops:db-push', ['test', '--file=' . $file . '.missing', '--force']);
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString("doesn't exist", $output);
+        $this->assertSame([], $this->server->commands, 'Nothing ran on the server');
     }
 
     public function testMediaPullDownloadsNewAndChangedFilesOnly(): void
@@ -149,6 +212,18 @@ class TransferCommandsTest extends SyncOpsTestCase
         $this->assertEmpty(preg_grep('#^(vendor|plugins|storage/framework/cache)/#', $entries), 'Excluded paths');
 
         @unlink(storage_path('framework/cache/.syncops-test'));
+    }
+
+    /**
+     * A local dump file for db-push --file (in the test folder, removed afterwards).
+     */
+    protected function dumpFile(string $name, string $contents): string
+    {
+        $directory = storage_path('temp/syncops-tests/dumps');
+        File::ensureDirectoryExists($directory);
+        File::put($directory . '/' . $name, $contents);
+
+        return $directory . DIRECTORY_SEPARATOR . $name;
     }
 
     /**

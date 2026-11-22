@@ -22,6 +22,11 @@ final class DatabaseDump
     public const DUMP_OPTIONS = ['--single-transaction', '--quick', '--no-tablespaces', '--skip-comments'];
 
     /**
+     * Shell filter that drops MariaDB's "sandbox mode" first line (/*M!999999…) of a dump, see gunzip().
+     */
+    public const SANDBOX_FILTER = "sed '1{/^\\/\\*M!999999/d;}'";
+
+    /**
      * Contents of an option file with the connection credentials.
      *
      * @param array<string, mixed> $database username, password, host, port, unix_socket
@@ -76,6 +81,33 @@ final class DatabaseDump
             ->throwIfFailed("Dumping the database '{$database['database']}' on the server");
 
         return $output;
+    }
+
+    /**
+     * Imports a dump that was uploaded to the server (.sql.gz or .sql) into the server's database. $tempDirectory is a
+     * private directory from RemoteServer::makeTempDirectory(). MariaDB's "sandbox mode" first line is dropped, like
+     * in gunzip(), because MySQL clients reject it.
+     */
+    public static function importRemote(RemoteServer $server, string $tempDirectory, string $dumpFile): void
+    {
+        $database = $server->config->database;
+
+        if ($database === null) {
+            throw new RuntimeException("No database is configured for '{$server->config->name}' (database.database, database.username).");
+        }
+
+        $optionFile = $tempDirectory . '/client.cnf';
+        $server->putContents($optionFile, static::optionFile($database));
+
+        // MariaDB 11 deprecates the "mysql" name; use "mariadb" where it exists
+        $client = trim($server->runShell('command -v mariadb || command -v mysql', null, false)
+            ->throwIfFailed('Finding mariadb/mysql on the server')->output);
+
+        $read = (str_ends_with($dumpFile, '.gz') ? 'gunzip -c ' : 'cat ') . RemoteServer::quote($dumpFile);
+        $command = RemoteServer::escape([$client, '--defaults-extra-file=' . $optionFile, $database['database']]);
+
+        $server->runShell('set -o pipefail; ' . $read . ' | ' . self::SANDBOX_FILTER . ' | ' . $command, null, false)
+            ->throwIfFailed("Importing into the database '{$database['database']}' on the server");
     }
 
     /**
