@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-23
+
 ### Added
 
 - **`syncops:db-push {server}`**, the reverse of `db-pull`: replaces a server's database with the local database
@@ -140,7 +142,8 @@ A security and reliability rewrite. It contains breaking changes – see [Upgrad
 - Initial release: deployment via Git, database and media synchronization over SSH/SFTP, project backups and cloud
   storage uploads, permissions handling and `config/syncops.php`. Compatible with Winter CMS 1.2.8+ and PHP 8.1+.
 
-[Unreleased]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/numencode/wn-syncops-plugin/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/numencode/wn-syncops-plugin/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/numencode/wn-syncops-plugin/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/numencode/wn-syncops-plugin/compare/v1.0.0...v1.1.0

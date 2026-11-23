@@ -6,3 +6,5 @@
     - '!!! Security and reliability rewrite: renamed backup commands (db-backup, media-backup, project-commit), host key verification, credentials no longer on command lines, configurable PHP and Composer binaries, remote-migrate command. Requires PHP 8.2+. See the upgrade guide in CHANGELOG.md.'
 2.0.1:
     - 'Maintenance release: same code as 2.0.0, published so Packagist refers to the tagged commit'
+2.1.0:
+    - 'New command syncops:db-push, the reverse of db-pull'
